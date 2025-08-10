@@ -1,9 +1,10 @@
 use serenity::{
-    all::{Context, EventHandler, Guild, Ready, UnavailableGuild},
+    all::{Context, EventHandler, Guild, Interaction, Message, Ready, UnavailableGuild},
     async_trait,
 };
+use utils::info;
 
-use crate::{ElapsedTime, Environment, info};
+use crate::{ElapsedTime, Environment};
 
 mod commands;
 
@@ -19,5 +20,15 @@ impl EventHandler for Handler {
         info!("Bot is connected as {}", ready.user.name);
         let data = ctx.data.clone();
         let env = data.read().await.get::<Environment>().cloned();
+    }
+
+    async fn message(&self, ctx: Context, msg: Message) {
+        if commands::message::is_command(&ctx, &msg).await {
+            return;
+        }
+    }
+
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        commands::interactions::handle(&ctx, &interaction).await;
     }
 }

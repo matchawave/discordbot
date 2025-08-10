@@ -150,12 +150,12 @@ pub trait Autocomplete: Send + Sync {
 
 #[derive(Clone)]
 pub enum CommandType {
-    Slash(Arc<dyn Slash>, Vec<PermissionLevel>),
-    Legacy(Arc<dyn Legacy>, Vec<PermissionLevel>),
-    Autocomplete(Arc<dyn Autocomplete>, Vec<PermissionLevel>),
-    SlashWithAutocomplete(Arc<dyn SlashWithAutocomplete>, Vec<PermissionLevel>),
-    SlashWithLegacy(Arc<dyn SlashWithLegacy>, Vec<PermissionLevel>),
-    SlashWithLegacyAutocomplete(Arc<dyn SlashWithLegacyAutocomplete>, Vec<PermissionLevel>),
+    Slash(Arc<dyn Slash>),
+    Legacy(Arc<dyn Legacy>),
+    Autocomplete(Arc<dyn Autocomplete>),
+    SlashWithAutocomplete(Arc<dyn SlashWithAutocomplete>),
+    SlashWithLegacy(Arc<dyn SlashWithLegacy>),
+    SlashWithLegacyAutocomplete(Arc<dyn SlashWithLegacyAutocomplete>),
 }
 
 pub trait SlashWithAutocomplete: Slash + Autocomplete + Send + Sync {}
@@ -168,6 +168,7 @@ pub struct ICommand<'a> {
     name: &'a str,
     description: &'a str,
     options: Vec<CreateCommandOption>,
+    permissions: Vec<PermissionLevel>,
     callbacks: CommandType,
 }
 
@@ -176,6 +177,7 @@ impl<'a> ICommand<'a> {
         name: &'a str,
         description: &'a str,
         options: Vec<CreateCommandOption>,
+        permissions: Vec<PermissionLevel>,
         callbacks: CommandType,
     ) -> Self {
         if options.len() >= 25 {
@@ -199,6 +201,7 @@ impl<'a> ICommand<'a> {
             name,
             description,
             options,
+            permissions,
             callbacks,
         }
     }
@@ -232,6 +235,10 @@ impl<'a> ICommand<'a> {
 
     pub fn get_callbacks(&self) -> CommandType {
         self.callbacks.clone()
+    }
+
+    pub fn get_permissions(&self) -> Vec<PermissionLevel> {
+        self.permissions.clone()
     }
 }
 

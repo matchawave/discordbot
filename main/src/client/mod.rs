@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use serenity::{
     Client,
@@ -6,21 +6,20 @@ use serenity::{
     prelude::TypeMapKey,
 };
 use songbird::SerenityInit;
+use utils::{CommandType, info};
 
-use crate::{Env, Environment, events::Handler, info};
+use crate::{Env, Environment, events::Handler};
 
 mod commands;
 mod permissions;
 
 pub use commands::*;
-pub use permissions::*;
-
 pub struct ShardManagerContainer;
 impl TypeMapKey for ShardManagerContainer {
     type Value = Arc<ShardManager>;
 }
 
-pub async fn create_client(env: Env) -> Client {
+pub async fn create_client(env: Env, commands: CommandsMap) -> Client {
     info!("Creating client");
     match ClientBuilder::new(env.token(), get_guild_intents())
         .event_handler(Handler)
@@ -32,6 +31,7 @@ pub async fn create_client(env: Env) -> Client {
             let mut data = data.write().await;
             data.insert::<ShardManagerContainer>(client.shard_manager.clone());
             data.insert::<Environment>(env);
+            data.insert::<Commands>(commands);
             client
         }
         Err(err) => panic!("Failed to create client: {}", err),

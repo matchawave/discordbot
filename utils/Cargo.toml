@@ -8,3 +8,4 @@ serenity = { workspace = true }
 tokio = { workspace = true }
 chrono = { workspace = true }
 macros = { path = "../macros" }
+colored = { workspace = true }

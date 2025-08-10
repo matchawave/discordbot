@@ -25,3 +25,4 @@ resolver = "2"
 serenity = {version = "0.12.4", features=['rustls_backend']}
 tokio = { version = "1", default-features = false, features = ['macros', 'sync', 'time', 'rt-multi-thread']}
 chrono = { version = "0.4", features = ["serde"] }
+colored = { version = "3.0" }

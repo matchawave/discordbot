@@ -24,7 +24,8 @@ pub fn command<'a>() -> ICommand<'a> {
         COMMAND_NAME,
         COMMAND_DESCRIPTION,
         vec![],
-        CommandType::SlashWithLegacyAutocomplete(Arc::new(Command), vec![]),
+        vec![],
+        CommandType::SlashWithLegacyAutocomplete(Arc::new(Command)),
     )
 }
 

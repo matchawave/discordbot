@@ -19,7 +19,7 @@ toml = { version = "0.9" }
 chrono = { workspace = true }
 regex = { version = "1.11" }
 url = { version = "2.5" }
-colored = { version = "3.0" }
+colored = { workspace = true }
 rprompt = { version = "2.2" }
 
 tokio = { workspace = true }
