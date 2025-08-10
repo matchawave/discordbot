@@ -1,0 +1,28 @@
+[package]
+name = "main"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[build-dependencies]
+dotenv = "0.15"
+
+[dependencies]
+serenity = { workspace = true }
+songbird = { version = "0.5", default-features = false, features = ['rustls', 'gateway', 'serenity'] }
+lavalink-rs = { version = "0.14", default-features = false, features = ['tungstenite-rustls-native-roots']}
+
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1"}
+toml = { version = "0.9" }
+
+chrono = { workspace = true }
+regex = { version = "1.11" }
+url = { version = "2.5" }
+colored = { version = "3.0" }
+rprompt = { version = "2.2" }
+
+tokio = { workspace = true }
+tokio-tungstenite = { version = "0.27", default-features = false, features = ['rustls', 'connect']}
+
+utils = { path = "../utils" }

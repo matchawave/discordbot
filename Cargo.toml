@@ -1,0 +1,27 @@
+
+[profile.dev]
+opt-level = 0
+debug = true
+incremental = true
+codegen-units = 256
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+lto = "fat"
+debug = false
+incremental = false
+
+[workspace]
+members = [ 
+    "main", "utils", "macros"
+]
+default-members = ["main"]
+resolver = "2"
+
+[workspace.dependencies]
+serenity = {version = "0.12.4", features=['rustls_backend']}
+tokio = { version = "1", default-features = false, features = ['macros', 'sync', 'time', 'rt-multi-thread']}
+chrono = { version = "0.4", features = ["serde"] }
