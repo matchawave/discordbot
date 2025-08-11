@@ -1,6 +1,11 @@
 use std::env;
 
-const ENVIRONMENTVARIABLES: [&str; 3] = ["LAVALINK_HOST", "LAVALINK_PORT", "LAVALINK_PASSWORD"];
+const ENVIRONMENTVARIABLES: [&str; 4] = [
+    "BACKEND_URL",
+    "LAVALINK_HOST",
+    "LAVALINK_PORT",
+    "LAVALINK_PASSWORD",
+];
 
 fn main() {
     dotenv::dotenv().expect("Failed to load .env file");

@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use serenity::{
     Client,
-    all::{ClientBuilder, GatewayIntents, ShardManager},
+    all::{ClientBuilder, CreateCommand, GatewayIntents, ShardManager},
     prelude::TypeMapKey,
 };
 use songbird::SerenityInit;
@@ -19,7 +19,8 @@ impl TypeMapKey for ShardManagerContainer {
     type Value = Arc<ShardManager>;
 }
 
-pub async fn create_client(env: Env, commands: CommandsMap) -> Client {
+pub async fn create_client(env: Env) -> Client {
+    let (commands_vec, commands_map) = commands::load_commands();
     info!("Creating client");
     match ClientBuilder::new(env.token(), get_guild_intents())
         .event_handler(Handler)
@@ -31,7 +32,10 @@ pub async fn create_client(env: Env, commands: CommandsMap) -> Client {
             let mut data = data.write().await;
             data.insert::<ShardManagerContainer>(client.shard_manager.clone());
             data.insert::<Environment>(env);
-            data.insert::<Commands>(commands);
+            data.insert::<Commands>(commands_map);
+            data.insert::<RegisteringCommands>(commands_vec);
+            data.insert::<ServerPrefixes>(setup_prefixes().into());
+            info!("Client created successfully");
             client
         }
         Err(err) => panic!("Failed to create client: {}", err),
@@ -51,4 +55,10 @@ fn get_guild_intents() -> GatewayIntents {
         .union(GatewayIntents::GUILD_WEBHOOKS)
         .union(GatewayIntents::GUILD_INVITES)
         .union(GatewayIntents::GUILD_SCHEDULED_EVENTS)
+}
+
+fn setup_prefixes() -> ServerPrefixesMap {
+    let mut prefixes = ServerPrefixesMap::new();
+    prefixes.insert(ServerPrefix::Default, "!".to_string());
+    prefixes
 }

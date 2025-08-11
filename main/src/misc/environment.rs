@@ -19,6 +19,7 @@ struct ConfigFile {
 #[derive(Debug, Clone)]
 pub struct Env {
     token: String,
+    api_url: String,
     lavalink: Arc<RwLock<LavalinkEnv>>,
 }
 
@@ -32,6 +33,10 @@ pub struct LavalinkEnv {
 impl Env {
     pub fn token(&self) -> &str {
         &self.token
+    }
+
+    pub fn api_url(&self) -> &str {
+        &self.api_url
     }
 
     pub async fn lavalink(&self) -> LavalinkEnv {
@@ -115,6 +120,7 @@ impl Default for Env {
         };
         Self {
             token,
+            api_url: env!("BACKEND_URL").to_string(),
             lavalink: Arc::new(LavalinkEnv::new(host, port, password).into()),
         }
     }

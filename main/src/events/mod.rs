@@ -7,6 +7,7 @@ use utils::info;
 use crate::{ElapsedTime, Environment};
 
 mod commands;
+mod ready;
 
 pub struct Handler;
 
@@ -17,9 +18,7 @@ impl EventHandler for Handler {
     async fn guild_delete(&self, ctx: Context, guild: UnavailableGuild, info: Option<Guild>) {}
 
     async fn ready(&self, ctx: Context, ready: Ready) {
-        info!("Bot is connected as {}", ready.user.name);
-        let data = ctx.data.clone();
-        let env = data.read().await.get::<Environment>().cloned();
+        ready::handle(ctx, ready).await;
     }
 
     async fn message(&self, ctx: Context, msg: Message) {

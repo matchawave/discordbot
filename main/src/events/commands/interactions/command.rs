@@ -45,6 +45,7 @@ pub async fn handle(ctx: &Context, command: &CommandInteraction) -> Option<Strin
     };
     if let Err(e) = command.create_response(ctx.http(), res).await {
         error!("Failed to send error to command '{}': {}", c_name, e);
+        return None;
     }
     Some(c_name)
 }

@@ -7,10 +7,9 @@ use serenity::{
     },
     async_trait,
 };
-use utils::SlashWithLegacyAutocomplete;
 use utils::{
     Autocomplete, CommandExecutionType, CommandType, ICommand, InteractionCommandResult, Legacy,
-    LegacyOptions, MessageResponseResult, Slash,
+    LegacyOptions, MessageResponseResult, Slash, SlashWithLegacyAutocomplete,
 };
 
 const COMMAND_NAME: &str = "";

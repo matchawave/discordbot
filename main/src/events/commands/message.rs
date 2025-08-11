@@ -1,9 +1,10 @@
 use serenity::all::{CacheHttp, Context, Message};
-use utils::{CommandType, LegacyOptions, error};
+use utils::{CommandType, LegacyOptions, error, info};
 
-use crate::{Commands, ServerPrefix, ServerPrefixes};
+use crate::{Commands, ElapsedTime, ServerPrefix, ServerPrefixes};
 
 pub async fn is_command(ctx: &Context, msg: &Message) -> bool {
+    let timer = ElapsedTime::new();
     let Some(guild_id) = msg.guild_id else {
         return false;
     };
@@ -24,6 +25,11 @@ pub async fn is_command(ctx: &Context, msg: &Message) -> bool {
     };
 
     if !msg.content.starts_with(&prefix) {
+        info!(
+            "Message does not start with prefix '{}' ({}μs)",
+            prefix,
+            timer.elapsed().as_micros()
+        );
         return false;
     }
 
@@ -63,7 +69,7 @@ pub async fn is_command(ctx: &Context, msg: &Message) -> bool {
             }
             return true;
         }
-        Err(e) => error!("Failed to execute command '{}': {}", c_name, e),
+        Err(e) => error!("Failed to execute command '{}': {}", c_name, e), // TODO: Handle error
     }
 
     false
