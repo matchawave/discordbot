@@ -26,9 +26,9 @@ pub async fn is_command(ctx: &Context, msg: &Message) -> bool {
 
     if !msg.content.starts_with(&prefix) {
         info!(
-            "Message does not start with prefix '{}' ({}μs)",
+            "Message does not start with prefix '{}' ({}ms)",
             prefix,
-            timer.elapsed().as_micros()
+            timer.elapsed_ms()
         );
         return false;
     }
