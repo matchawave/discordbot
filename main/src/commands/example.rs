@@ -1,84 +1,63 @@
 use std::sync::Arc;
 
 use serenity::{
-    all::{
-        CommandInteraction, Context, CreateAutocompleteResponse, CreateInteractionResponse,
-        CreateInteractionResponseMessage, CreateMessage, Message,
-    },
+    all::{AutocompleteOption, ChannelId, CommandInteraction, CommandType, Context, GuildId, User},
     async_trait,
 };
+
 use utils::{
-    Autocomplete, CommandExecutionType, CommandType, ICommand, InteractionCommandResult, Legacy,
-    LegacyOptions, MessageResponseResult, Slash, SlashWithLegacyAutocomplete,
+    AutocompleteResponse, CommandArguments, CommandResponse, CommandTemplate, CommandTrait,
+    ICommand,
 };
 
 const COMMAND_NAME: &str = "";
 const COMMAND_DESCRIPTION: &str = "";
 
-#[derive(SlashWithLegacyAutocomplete)]
 pub struct Command;
 
-pub fn command<'a>() -> ICommand<'a> {
-    ICommand::new(
-        COMMAND_NAME,
-        COMMAND_DESCRIPTION,
-        vec![],
-        vec![],
-        CommandType::SlashWithLegacyAutocomplete(Arc::new(Command)),
+pub fn command() -> CommandTemplate {
+    (
+        ICommand::new(
+            COMMAND_NAME.to_string(),
+            COMMAND_DESCRIPTION.to_string(),
+            CommandType::ChatInput,
+            vec![],
+            vec![],
+        ),
+        Arc::new(Command),
     )
 }
 
 #[async_trait]
-impl Slash for Command {
-    async fn slash(
+impl CommandTrait for Command {
+    async fn execute<'a>(
         &self,
-        ctx: &Context,
-        interaction: &CommandInteraction,
-    ) -> InteractionCommandResult {
-        Ok(CreateInteractionResponse::Message(
-            CreateInteractionResponseMessage::new().content(
-                match command_handler(ctx, CommandExecutionType::Command(interaction)).await {
-                    Ok(response) => response,
-                    Err(e) => e.to_string(),
-                },
-            ),
-        ))
+        ctx: &'a Context,
+        user: &'a User,
+        channel: Option<(GuildId, ChannelId)>,
+        args: CommandArguments<'a>,
+    ) -> Option<CommandResponse> {
+        Some(CommandResponse::default())
     }
-}
-
-#[async_trait]
-impl Legacy for Command {
-    async fn legacy(
+    async fn autocomplete<'a>(
         &self,
-        ctx: &Context,
-        msg: &Message,
-        options: Vec<LegacyOptions>,
-    ) -> MessageResponseResult {
-        Ok(CreateMessage::new().content(
-            match command_handler(ctx, CommandExecutionType::Legacy(msg, options)).await {
-                Ok(response) => response,
-                Err(e) => e.to_string(),
-            },
-        ))
-    }
-}
-
-async fn command_handler<'a>(
-    ctx: &Context,
-    command: CommandExecutionType<'a>,
-) -> Result<String, String> {
-    Ok("Command executed successfully".to_string())
-}
-
-#[async_trait]
-impl Autocomplete for Command {
-    async fn autocomplete(
-        &self,
-        ctx: &Context,
-        interaction: &CommandInteraction,
-    ) -> InteractionCommandResult {
+        ctx: &'a Context,
+        user: &'a User,
+        focused: AutocompleteOption<'a>,
+        interaction: &'a CommandInteraction,
+    ) -> Option<AutocompleteResponse> {
         // Handle autocomplete logic here
-        let mut response = CreateAutocompleteResponse::new();
-        Ok(CreateInteractionResponse::Autocomplete(response))
+        let mut response = AutocompleteResponse::new();
+
+        Some(response)
+    }
+    fn is_legacy(&self) -> bool {
+        false
+    }
+    fn is_slash(&self) -> bool {
+        true
+    }
+    fn supports_autocomplete(&self) -> bool {
+        true
     }
 }

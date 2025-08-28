@@ -1,5 +1,5 @@
 use serenity::all::{Context, Interaction};
-use utils::info;
+use utils::{info, warning};
 
 use crate::ElapsedTime;
 
@@ -21,5 +21,7 @@ pub async fn handle(ctx: &Context, interaction: &Interaction) {
     };
     if let Some(name) = interaction_identification {
         info!("Interaction {} handled ({}ms)", name, timer.elapsed_ms())
+    } else {
+        warning!("Interaction not handled ({}ms)", timer.elapsed_ms());
     }
 }

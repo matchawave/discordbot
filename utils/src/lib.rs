@@ -8,7 +8,6 @@ use serenity::prelude::TypeMap;
 use tokio::sync::RwLock;
 
 pub use commands::*;
-pub use logging::*;
 pub use permissions::*;
 
 pub type InteractionCommandResult = Result<serenity::builder::CreateInteractionResponse, String>;

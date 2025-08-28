@@ -1,38 +1,50 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::parse_macro_input;
+use syn::{DeriveInput, Meta, parse_macro_input};
 
-#[proc_macro_derive(SlashWithAutocomplete)]
-pub fn derive_slash_with_autocomplete(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(Slash)]
+pub fn derive_slash(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as syn::DeriveInput);
     let name = &ast.ident;
 
     let expanded = quote! {
-        impl SlashWithAutocomplete for #name {}
+        impl Slash for #name {
+            // fn is_slash(&self) -> bool {
+            //     true
+            // }
+        }
     };
 
     TokenStream::from(expanded)
 }
 
-#[proc_macro_derive(SlashWithLegacy)]
-pub fn derive_slash_with_legacy(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(Legacy)]
+pub fn derive_legacy(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as syn::DeriveInput);
     let name = &ast.ident;
 
     let expanded = quote! {
-        impl SlashWithLegacy for #name {}
+        impl Legacy for #name {
+            // fn is_legacy(&self) -> bool {
+            //     true
+            // }
+        }
     };
 
     TokenStream::from(expanded)
 }
 
-#[proc_macro_derive(SlashWithLegacyAutocomplete)]
-pub fn derive_slash_with_legacy_autocomplete(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(Autocomplete)]
+pub fn derive_autocomplete(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as syn::DeriveInput);
     let name = &ast.ident;
 
     let expanded = quote! {
-        impl SlashWithLegacyAutocomplete for #name {}
+        impl Autocomplete for #name {
+            // fn is_autocomplete(&self) -> bool {
+            //     true
+            // }
+        }
     };
 
     TokenStream::from(expanded)

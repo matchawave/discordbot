@@ -1,13 +1,19 @@
 use serenity::all::{CacheHttp, Context, Message};
-use utils::{CommandType, LegacyOptions, error, info};
+use utils::{CommandArguments, LegacyOption, error, info, warning};
 
 use crate::{Commands, ElapsedTime, ServerPrefix, ServerPrefixes};
 
 pub async fn is_command(ctx: &Context, msg: &Message) -> bool {
     let timer = ElapsedTime::new();
+    if msg.author.bot {
+        return false;
+    }
+
     let Some(guild_id) = msg.guild_id else {
         return false;
     };
+
+    let channel_id = msg.channel_id;
 
     let prefix = {
         let data = ctx.data.read().await;
@@ -44,33 +50,34 @@ pub async fn is_command(ctx: &Context, msg: &Message) -> bool {
     let c_name = content.split_whitespace().next().unwrap_or("");
     content = content.trim_start_matches(c_name).trim();
 
-    let Some((c, perms)) = commands.get(c_name) else {
-        error!("Command '{}' not found", c_name);
+    let Some((c, _perms)) = commands.get(c_name) else {
+        warning!("Command '{}' not found", c_name);
         return false;
     };
 
-    let options = LegacyOptions::parse(content);
+    if !c.is_legacy() {
+        warning!("Command '{}' is not a legacy command", c_name);
+        return false;
+    }
 
-    let message_response = match c {
-        CommandType::Legacy(c) => c.legacy(ctx, msg, options),
-        CommandType::SlashWithLegacy(c) => c.legacy(ctx, msg, options),
-        CommandType::SlashWithLegacyAutocomplete(c) => c.legacy(ctx, msg, options),
-        _ => {
-            error!("Command '{}' is not a legacy command", c_name);
+    let options = LegacyOption::parse(content);
+
+    let args = CommandArguments::Legacy(Some(options), msg);
+
+    if let Some(msg_response) = c
+        .execute(ctx, &msg.author, Some((guild_id, channel_id)), args)
+        .await
+    {
+        let mut new_msg = msg_response.to_msg();
+        if msg_response.should_reply() {
+            new_msg = new_msg.reference_message(msg);
+        }
+        if let Err(e) = channel_id.send_message(ctx.http(), new_msg).await {
+            error!("Failed to send message: {}", e);
             return false;
-        }
-    }
-    .await;
+        };
 
-    match message_response {
-        Ok(res) => {
-            if let Err(e) = msg.channel_id.send_message(ctx.http(), res).await {
-                error!("Failed to send message: {}", e);
-            }
-            return true;
-        }
-        Err(e) => error!("Failed to execute command '{}': {}", c_name, e), // TODO: Handle error
+        return true;
     }
-
     false
 }

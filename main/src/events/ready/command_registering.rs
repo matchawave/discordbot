@@ -1,9 +1,9 @@
-use serenity::all::{CacheHttp, Context, CreateCommand, GuildId, Http};
+use serenity::all::{CacheHttp, Context, GuildId};
 use utils::{error, info};
 
 use crate::{ElapsedTime, RegisteringCommands};
 
-pub async fn register_commands(ctx: &Context) {
+pub async fn run(ctx: &Context) {
     let timer = ElapsedTime::new();
     let http = ctx.http();
     let commands = {

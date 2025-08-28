@@ -1,8 +1,7 @@
-use serenity::all::{
-    CacheHttp, CommandInteraction, Context, CreateInteractionResponse,
-    CreateInteractionResponseMessage,
-};
-use utils::{CommandType, error};
+use std::collections::HashMap;
+
+use serenity::all::{CacheHttp, CommandInteraction, Context, CreateInteractionResponse};
+use utils::{CommandArguments, error, warning};
 
 use crate::Commands;
 
@@ -14,38 +13,45 @@ pub async fn handle(ctx: &Context, command: &CommandInteraction) -> Option<Strin
             .clone()
     };
     let c_name = command.data.name.clone();
-    let Some((c, perms)) = commands.get(&c_name) else {
+    let Some((c, _perms)) = commands.get(&c_name) else {
         error!("Command '{}' not found", c_name);
         return None;
     };
 
+    if !c.is_slash() {
+        warning!("Command '{}' is not a slash command", c_name);
+        return None;
+    }
+
+    let options = {
+        let mut hash_map = HashMap::new();
+        let options = &command.data.options;
+        if options.is_empty() {
+            None
+        } else {
+            for option in options.iter() {
+                hash_map.insert(option.name.clone(), option.value.clone());
+            }
+            Some(hash_map)
+        }
+    };
+    let args = CommandArguments::Slash(options, command);
+    let channel = command.channel_id;
+    let guild_and_channel = command.guild_id.map(|g| (g, channel));
     // TODO: Check User Permissions
 
-    let response = match c {
-        CommandType::Slash(c) => c.slash(ctx, command),
-        CommandType::SlashWithAutocomplete(c) => c.slash(ctx, command),
-        CommandType::SlashWithLegacy(c) => c.slash(ctx, command),
-        CommandType::SlashWithLegacyAutocomplete(c) => c.autocomplete(ctx, command),
-        _ => {
-            error!("Command '{}' is not a slash command", c_name);
+    if let Some(response) = c.execute(ctx, &command.user, guild_and_channel, args).await {
+        if let Err(e) = command
+            .create_response(
+                ctx.http(),
+                CreateInteractionResponse::Message(response.to_interaction_msg()),
+            )
+            .await
+        {
+            error!("Failed to send response to command '{}': {}", c_name, e);
             return None;
         }
     }
-    .await;
 
-    let res = match response {
-        Ok(res) => res,
-        Err(e) => {
-            error!("Error executing command '{}': {}", c_name, e);
-            let message = CreateInteractionResponseMessage::new()
-                .content(format!("Error executing command: {}", e))
-                .ephemeral(true);
-            CreateInteractionResponse::Message(message)
-        }
-    };
-    if let Err(e) = command.create_response(ctx.http(), res).await {
-        error!("Failed to send error to command '{}': {}", c_name, e);
-        return None;
-    }
     Some(c_name)
 }

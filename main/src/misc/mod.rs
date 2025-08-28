@@ -1,5 +1,3 @@
-mod environment;
-pub use environment::*;
 #[derive(Debug)]
 pub struct ElapsedTime {
     start: std::time::Instant,

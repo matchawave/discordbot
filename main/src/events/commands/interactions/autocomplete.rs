@@ -1,5 +1,11 @@
-use serenity::all::{CacheHttp, CommandInteraction, Context};
-use utils::{CommandType, error};
+use serenity::{
+    all::{
+        CacheHttp, CommandInteraction, Context, CreateAutocompleteResponse,
+        CreateInteractionResponse,
+    },
+    json::Value,
+};
+use utils::error;
 
 use crate::Commands;
 
@@ -17,32 +23,46 @@ pub async fn handle(ctx: &Context, autocomplete: &CommandInteraction) -> Option<
         return None;
     };
 
-    let response = match c {
-        CommandType::Autocomplete(c) => c.autocomplete(ctx, autocomplete),
-        CommandType::SlashWithAutocomplete(c) => c.autocomplete(ctx, autocomplete),
-        CommandType::SlashWithLegacyAutocomplete(c) => c.autocomplete(ctx, autocomplete),
-        _ => {
-            error!("Unsupported command type for autocomplete: {}", name);
-            return None;
-        }
+    if !c.supports_autocomplete() {
+        error!("Command '{}' doesn't support autocomplete", name);
+        return None;
     }
-    .await;
 
-    let res = match response {
-        Ok(res) => res,
-        Err(e) => {
-            error!("Error executing autocomplete for command '{}': {}", name, e);
-            return None;
-        }
+    let user = autocomplete.user.clone();
+
+    let focused = autocomplete.data.autocomplete()?;
+    let Some(response) = c.autocomplete(ctx, &user, focused, autocomplete).await else {
+        error!("Failed to get autocomplete response for command '{}'", name);
+        return None;
     };
 
-    if let Err(e) = autocomplete.create_response(ctx.http(), res).await {
+    let mut options = CreateAutocompleteResponse::new();
+
+    for (index, (name, value)) in response.iter().enumerate() {
+        if index >= 25 {
+            break; // Discord allows a maximum of 25 choices
+        }
+        options = match value {
+            Value::String(s) => options.clone().add_string_choice(name, s),
+            Value::Number(n) => options
+                .clone()
+                .add_number_choice(name, n.as_f64().unwrap_or(0.0)),
+            _ => {
+                error!("Unsupported autocomplete value type for command '{}'", name);
+                continue;
+            }
+        };
+    }
+
+    if let Err(e) = autocomplete
+        .create_response(ctx.http(), CreateInteractionResponse::Autocomplete(options))
+        .await
+    {
         error!(
             "Failed to send autocomplete response for command '{}': {}",
             name, e
         );
         return None;
     }
-
     Some(name)
 }

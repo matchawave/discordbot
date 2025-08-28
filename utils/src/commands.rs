@@ -1,16 +1,290 @@
-use std::sync::Arc;
+use std::{any::TypeId, collections::HashMap, fmt::Display, process, sync::Arc};
 
-use chrono::Duration;
+use chrono::{Duration, TimeDelta};
 use serenity::{
-    all::{CommandInteraction, Context, CreateCommandOption, GuildId, Message, RoleId, UserId},
+    all::{
+        AutocompleteOption, ChannelId, CommandDataOptionValue, CommandInteraction, CommandType,
+        Context, CreateActionRow, CreateAttachment, CreateCommandOption, CreateEmbed,
+        CreateInteractionResponseMessage, CreateMessage, CreatePoll, GuildId, Message, RoleId,
+        User, UserId, create_poll::Ready,
+    },
     async_trait,
+    json::Value,
 };
 
-use crate::{InteractionCommandResult, MessageResponseResult, PermissionLevel};
-pub use macros::{SlashWithAutocomplete, SlashWithLegacy, SlashWithLegacyAutocomplete};
+use crate::{PermissionLevel, error, warning};
 
+#[async_trait]
+pub trait CommandTrait: Send + Sync {
+    async fn execute<'a>(
+        &self,
+        ctx: &'a Context,
+        user: &'a User,
+        channel: Option<(GuildId, ChannelId)>,
+        args: CommandArguments<'a>,
+    ) -> Option<CommandResponse>;
+    async fn autocomplete<'a>(
+        &self,
+        ctx: &'a Context,
+        user: &'a User,
+        focused: AutocompleteOption<'a>,
+        interaction: &'a CommandInteraction,
+    ) -> Option<AutocompleteResponse> {
+        None
+    }
+    fn is_legacy(&self) -> bool {
+        false
+    }
+    fn is_slash(&self) -> bool {
+        false
+    }
+    fn supports_autocomplete(&self) -> bool {
+        false
+    }
+}
+
+pub struct ICommand {
+    name: String,
+    description: String,
+    options: Vec<CreateCommandOption>,
+    permissions: Vec<PermissionLevel>,
+    kind: CommandType,
+}
+
+impl ICommand {
+    pub fn new(
+        name: String,
+        description: String,
+        kind: CommandType,
+        options: Vec<CreateCommandOption>,
+        permissions: Vec<PermissionLevel>,
+    ) -> Self {
+        if options.len() >= 25 {
+            error!("Command {} has too many options", name);
+            process::exit(1);
+        }
+        if description.len() > 100 {
+            error!("Command {} has too long description", name);
+            process::exit(1);
+        }
+        if name.len() > 32 {
+            error!("Command {} has too long name", name);
+            process::exit(1);
+        }
+
+        if name.is_empty() {
+            error!("Command name cannot be empty");
+            process::exit(1);
+        }
+        if description.is_empty() {
+            error!("Command description cannot be empty");
+            process::exit(1);
+        }
+
+        Self {
+            name,
+            description,
+            options,
+            permissions,
+            kind,
+        }
+    }
+
+    pub fn get_name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn get_description(&self) -> String {
+        self.description.clone()
+    }
+
+    pub fn get_options(&self) -> &[serenity::all::CreateCommandOption] {
+        &self.options
+    }
+
+    pub fn get_command(&self) -> serenity::all::CreateCommand {
+        if self.options.is_empty() {
+            serenity::all::CreateCommand::new(self.name.clone())
+                .description(self.description.clone())
+                .kind(self.kind.clone())
+                .nsfw(false)
+        } else {
+            let mut command = serenity::all::CreateCommand::new(self.name.clone())
+                .description(self.description.clone())
+                .kind(self.kind.clone())
+                .nsfw(false);
+            for option in &self.options {
+                command = command.add_option(option.clone().to_owned());
+            }
+            command
+        }
+    }
+
+    pub fn get_permissions(&self) -> Vec<PermissionLevel> {
+        self.permissions.clone()
+    }
+}
+
+pub enum CommandArguments<'a> {
+    Slash(
+        Option<HashMap<String, CommandDataOptionValue>>,
+        &'a CommandInteraction,
+    ),
+    Legacy(Option<Vec<LegacyOption>>, &'a Message),
+}
+#[derive(Debug, Clone, Default)]
+pub struct CommandResponse {
+    content: Option<String>,
+    embeds: Vec<CreateEmbed>,
+    components: Vec<CreateActionRow>,
+    attachments: Vec<CreateAttachment>,
+    poll: Option<CreatePoll<Ready>>,
+    ephemeral: bool,
+    reply: bool,
+}
+
+impl CommandResponse {
+    pub fn new(content: impl Into<String>, embeds: Vec<CreateEmbed>) -> Self {
+        let content = content.into();
+        Self {
+            content: if content.is_empty() {
+                None
+            } else {
+                Some(content)
+            },
+            embeds,
+            ..Default::default()
+        }
+    }
+
+    pub fn new_content(content: impl Into<String>) -> Self {
+        let content = content.into();
+        if content.len() > 2000 {
+            error!("Content length exceeds 2000 characters");
+            process::exit(1);
+        }
+        Self {
+            content: if content.is_empty() {
+                None
+            } else {
+                Some(content)
+            },
+            ..Default::default()
+        }
+    }
+
+    pub fn new_embeds(embeds: Vec<CreateEmbed>) -> Self {
+        Self {
+            embeds,
+            ..Default::default()
+        }
+    }
+
+    pub fn new_components(components: Vec<CreateActionRow>) -> Self {
+        Self {
+            components,
+            ..Default::default()
+        }
+    }
+
+    pub fn new_attachments(attachments: Vec<CreateAttachment>) -> Self {
+        Self {
+            attachments,
+            ..Default::default()
+        }
+    }
+
+    pub fn content(mut self, content: impl Into<String>) -> Self {
+        let content = content.into();
+        if content.len() > 2000 {
+            error!("Content length exceeds 2000 characters");
+            process::exit(1);
+        }
+        self.content = Some(content);
+        self
+    }
+
+    pub fn embeds(mut self, embeds: Vec<CreateEmbed>) -> Self {
+        self.embeds = embeds;
+        self
+    }
+
+    pub fn components(mut self, components: Vec<CreateActionRow>) -> Self {
+        self.components = components;
+        self
+    }
+
+    pub fn add_attachment(mut self, attachment: CreateAttachment) -> Self {
+        self.attachments.push(attachment);
+        self
+    }
+
+    pub fn add_embed(mut self, embed: CreateEmbed) -> Self {
+        self.embeds.push(embed);
+        self
+    }
+
+    pub fn poll(mut self, poll: CreatePoll<Ready>) -> Self {
+        self.poll = Some(poll);
+        self
+    }
+
+    pub fn ephemeral(mut self) -> Self {
+        self.ephemeral = true;
+        self
+    }
+
+    pub fn reply(mut self) -> Self {
+        self.reply = true;
+        self
+    }
+
+    pub fn should_reply(&self) -> bool {
+        self.reply
+    }
+
+    pub fn to_msg(&self) -> CreateMessage {
+        let mut msg = CreateMessage::new();
+        if let Some(ref content) = self.content {
+            msg = msg.content(content);
+        }
+        if !self.embeds.is_empty() {
+            msg = msg.embeds(self.embeds.clone());
+        }
+        if !self.components.is_empty() {
+            msg = msg.components(self.components.clone());
+        }
+        if !self.attachments.is_empty() {
+            msg = msg.add_files(self.attachments.clone());
+        }
+        if let Some(ref poll) = self.poll {
+            msg = msg.poll(poll.clone());
+        }
+        msg
+    }
+
+    pub fn to_interaction_msg(&self) -> CreateInteractionResponseMessage {
+        let mut msg = CreateInteractionResponseMessage::new();
+        if let Some(ref content) = self.content {
+            msg = msg.content(content);
+        }
+        if !self.embeds.is_empty() {
+            msg = msg.embeds(self.embeds.clone());
+        }
+        if !self.components.is_empty() {
+            msg = msg.components(self.components.clone());
+        }
+        if !self.attachments.is_empty() {
+            msg = msg.add_files(self.attachments.clone());
+        }
+        if let Some(ref poll) = self.poll {
+            msg = msg.poll(poll.clone());
+        }
+        msg
+    }
+}
 #[derive(Debug, Clone)]
-pub enum LegacyOptions {
+pub enum LegacyOption {
     User(UserId),
     Channel(GuildId),
     Role(RoleId),
@@ -20,7 +294,7 @@ pub enum LegacyOptions {
     Boolean(bool),
 }
 
-impl LegacyOptions {
+impl LegacyOption {
     pub fn parse(content: &str) -> Vec<Self> {
         let mut options = Vec::new();
         let mut text: Option<String> = Option::None;
@@ -30,20 +304,20 @@ impl LegacyOptions {
             }
             if text.is_none() {
                 if part == "true" || part == "yes" {
-                    options.push(LegacyOptions::Boolean(true));
+                    options.push(LegacyOption::Boolean(true));
                     continue;
                 } else if part == "false" || part == "no" {
-                    options.push(LegacyOptions::Boolean(false));
+                    options.push(LegacyOption::Boolean(false));
                     continue;
                 }
 
                 if let Ok(num) = part.parse::<i64>() {
-                    options.push(LegacyOptions::Integer(num));
+                    options.push(LegacyOption::Integer(num));
                     continue;
                 }
 
                 if let Some(time) = Self::parse_time(part) {
-                    options.push(LegacyOptions::Time(time));
+                    options.push(LegacyOption::Time(time));
                     continue;
                 }
 
@@ -51,15 +325,15 @@ impl LegacyOptions {
                     let id_str = &part[2..part.len() - 1];
                     if let Some(id_str) = id_str.strip_prefix("&") {
                         if let Ok(id) = id_str.parse::<u64>() {
-                            options.push(LegacyOptions::Role(serenity::all::RoleId::new(id)));
+                            options.push(LegacyOption::Role(serenity::all::RoleId::new(id)));
                         } else {
                             println!("Invalid ID format in legacy role option: {}", id_str);
                         }
                     } else if let Ok(id) = id_str.parse::<u64>() {
                         if part.starts_with("<@") {
-                            options.push(LegacyOptions::User(serenity::all::UserId::new(id)));
+                            options.push(LegacyOption::User(serenity::all::UserId::new(id)));
                         } else if part.starts_with("<#") {
-                            options.push(LegacyOptions::Channel(serenity::all::GuildId::new(id)));
+                            options.push(LegacyOption::Channel(serenity::all::GuildId::new(id)));
                         }
                     } else {
                         println!("Invalid ID format in legacy option: {}", part);
@@ -78,7 +352,7 @@ impl LegacyOptions {
             }
         }
         if let Some(text) = text {
-            options.push(LegacyOptions::Text(text));
+            options.push(LegacyOption::Text(text));
         }
 
         options
@@ -118,131 +392,76 @@ impl LegacyOptions {
             None // No valid time parsed
         }
     }
-}
 
-#[async_trait]
-pub trait Slash: Send + Sync {
-    async fn slash(
-        &self,
-        ctx: &Context,
-        interaction: &CommandInteraction,
-    ) -> InteractionCommandResult;
-}
+    pub fn time_str(duration: &TimeDelta) -> String {
+        let mut secs = duration.num_seconds();
 
-#[async_trait]
-pub trait Legacy: Send + Sync {
-    async fn legacy(
-        &self,
-        ctx: &Context,
-        msg: &Message,
-        options: Vec<LegacyOptions>,
-    ) -> MessageResponseResult;
-}
-
-#[async_trait]
-pub trait Autocomplete: Send + Sync {
-    async fn autocomplete(
-        &self,
-        ctx: &Context,
-        interaction: &CommandInteraction,
-    ) -> InteractionCommandResult;
-}
-
-#[derive(Clone)]
-pub enum CommandType {
-    Slash(Arc<dyn Slash>),
-    Legacy(Arc<dyn Legacy>),
-    Autocomplete(Arc<dyn Autocomplete>),
-    SlashWithAutocomplete(Arc<dyn SlashWithAutocomplete>),
-    SlashWithLegacy(Arc<dyn SlashWithLegacy>),
-    SlashWithLegacyAutocomplete(Arc<dyn SlashWithLegacyAutocomplete>),
-}
-
-pub trait SlashWithAutocomplete: Slash + Autocomplete + Send + Sync {}
-
-pub trait SlashWithLegacy: Slash + Legacy + Send + Sync {}
-
-pub trait SlashWithLegacyAutocomplete: Autocomplete + Legacy + Slash + Send + Sync {}
-
-pub struct ICommand<'a> {
-    name: &'a str,
-    description: &'a str,
-    options: Vec<CreateCommandOption>,
-    permissions: Vec<PermissionLevel>,
-    callbacks: CommandType,
-}
-
-impl<'a> ICommand<'a> {
-    pub fn new(
-        name: &'a str,
-        description: &'a str,
-        options: Vec<CreateCommandOption>,
-        permissions: Vec<PermissionLevel>,
-        callbacks: CommandType,
-    ) -> Self {
-        if options.len() >= 25 {
-            panic!("Command {} has too many options", name);
-        }
-        if description.len() > 100 {
-            panic!("Command {} has too long description", name);
-        }
-        if name.len() > 32 {
-            panic!("Command {} has too long name", name);
+        if secs == 0 {
+            return "0s".into();
         }
 
-        if name.is_empty() {
-            panic!("Command name cannot be empty");
+        let weeks = secs / (7 * 24 * 3600);
+        secs %= 7 * 24 * 3600;
+
+        let days = secs / (24 * 3600);
+        secs %= 24 * 3600;
+
+        let hours = secs / 3600;
+        secs %= 3600;
+
+        let minutes = secs / 60;
+        secs %= 60;
+
+        let mut parts = Vec::new();
+        if weeks > 0 {
+            parts.push(format!(
+                "{} week{}",
+                weeks,
+                if weeks == 1 { "" } else { "s" }
+            ));
         }
-        if description.is_empty() {
-            panic!("Command description cannot be empty");
+        if days > 0 {
+            parts.push(format!("{} day{}", days, if days == 1 { "" } else { "s" }));
+        }
+        if hours > 0 {
+            parts.push(format!(
+                "{} hour{}",
+                hours,
+                if hours == 1 { "" } else { "s" }
+            ));
+        }
+        if minutes > 0 {
+            parts.push(format!(
+                "{} minute{}",
+                minutes,
+                if minutes == 1 { "" } else { "s" }
+            ));
+        }
+        if secs > 0 {
+            parts.push(format!(
+                "{} second{}",
+                secs,
+                if secs == 1 { "" } else { "s" }
+            ));
         }
 
-        Self {
-            name,
-            description,
-            options,
-            permissions,
-            callbacks,
-        }
-    }
-
-    pub fn get_name(&self) -> &str {
-        self.name
-    }
-
-    pub fn get_description(&self) -> &str {
-        self.description
-    }
-
-    pub fn get_options(&self) -> &[serenity::all::CreateCommandOption] {
-        &self.options
-    }
-
-    pub fn get_command(&self) -> serenity::all::CreateCommand {
-        if self.options.is_empty() {
-            serenity::all::CreateCommand::new(self.name.to_string()).description(self.description)
-        } else {
-            let mut command = serenity::all::CreateCommand::new(self.name.to_string())
-                .description(self.description)
-                .kind(serenity::all::CommandType::ChatInput)
-                .nsfw(false);
-            for option in &self.options {
-                command = command.add_option(option.clone().to_owned());
-            }
-            command
-        }
-    }
-
-    pub fn get_callbacks(&self) -> CommandType {
-        self.callbacks.clone()
-    }
-
-    pub fn get_permissions(&self) -> Vec<PermissionLevel> {
-        self.permissions.clone()
+        parts.join(" ")
     }
 }
 
-pub enum CommandExecutionType<'a> {
-    Command(&'a CommandInteraction),
-    Legacy(&'a Message, Vec<LegacyOptions>),
+impl Display for LegacyOption {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LegacyOption::User(id) => write!(f, "<@{}>", id.get()),
+            LegacyOption::Channel(id) => write!(f, "<#{}>", id.get()),
+            LegacyOption::Role(id) => write!(f, "<@&{}>", id.get()),
+            LegacyOption::Text(text) => write!(f, "{}", text),
+            LegacyOption::Time(duration) => write!(f, "{}", Self::time_str(duration)),
+            LegacyOption::Integer(num) => write!(f, "{}", num),
+            LegacyOption::Boolean(b) => write!(f, "{}", b),
+        }
+    }
 }
+
+pub type CommandTemplate = (ICommand, Arc<dyn CommandTrait>);
+pub type AutocompleteResponse = HashMap<String, Value>;
