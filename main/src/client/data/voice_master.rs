@@ -14,8 +14,8 @@ impl TypeMapKey for VoiceHub {
     type Value = Arc<RwLock<BotHash<GuildId, VoiceMasterConfig>>>;
 }
 
-pub struct VoiceUserConfigRepo;
-impl TypeMapKey for VoiceUserConfigRepo {
+pub struct UserVoiceConfigRepo;
+impl TypeMapKey for UserVoiceConfigRepo {
     type Value = Arc<RwLock<UserConfigHash<UserVoiceConfig>>>;
 }
 
