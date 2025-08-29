@@ -19,8 +19,8 @@ pub async fn build_data(client: Client, env: Env) -> Client {
     data.insert::<Environment>(env);
     data.insert::<Commands>(commands_map);
     data.insert::<RegisteringCommands>(commands_vec);
-    data.insert::<VoiceHub>(Arc::new(HashMap::new().into()));
-    data.insert::<UserAFK>(Arc::new(HashMap::new().into()));
+    data.insert::<VoiceHub>(Arc::new(BotHash::new().into()));
+    data.insert::<UserAFK>(Arc::new(UserConfigHash::new().into()));
     client
 }
 
@@ -28,5 +28,7 @@ pub use commands::{Commands, RegisteringCommands};
 pub use environment::{Env, Environment, LavalinkEnv};
 pub use extras::*;
 pub use prefixes::{ServerPrefix, ServerPrefixes};
-pub use user_afk::{AFKAccess, UserAFK, UserAFKData, UserAFKRepo};
-pub use voice_master::{VoiceHub, VoiceMasterConfig};
+pub use user_afk::*;
+pub use voice_master::*;
+
+use crate::{BotHash, UserConfigHash};

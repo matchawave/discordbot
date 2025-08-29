@@ -7,7 +7,7 @@ use serenity::{
 
 use utils::{CommandArguments, CommandResponse, CommandTemplate, CommandTrait, ICommand};
 
-use crate::{AFKAccess, UserAFK, UserAFKData};
+use crate::{UserAFK, UserAFKData, UserGlobalType};
 
 const COMMAND_NAME: &str = "afk";
 const COMMAND_DESCRIPTION: &str = "Set your AFK status";
@@ -76,7 +76,7 @@ impl CommandTrait for Command {
 
         {
             let repo = afk_repo.read().await;
-            match repo.get(&AFKAccess::Guild(guild_id, user.id)) {
+            match repo.get(&UserGlobalType::Guild(guild_id, user.id)) {
                 Some(_) => {
                     return Some(
                         CommandResponse::new_content(
@@ -89,7 +89,7 @@ impl CommandTrait for Command {
                     if afk_repo
                         .read()
                         .await
-                        .get(&AFKAccess::User(user.id))
+                        .get(&UserGlobalType::User(user.id))
                         .is_some()
                     {
                         return Some(
@@ -104,7 +104,7 @@ impl CommandTrait for Command {
         }
 
         let mut repo = afk_repo.write().await;
-        repo.insert(crate::AFKAccess::User(user.id), status.clone());
+        repo.insert(crate::UserGlobalType::User(user.id), status.clone());
 
         Some(
             CommandResponse::new_content(format!(

@@ -11,7 +11,7 @@ use serenity::{
 use tokio::sync::RwLock;
 use utils::{LegacyOption, error, warning};
 
-use crate::{AFKAccess, UserAFK, UserAFKRepo};
+use crate::{UserAFK, UserAFKData, UserConfigHash, UserGlobalType};
 
 pub async fn check_afk_status(ctx: &Context, msg: &Message) {
     let Some(guild_id) = msg.guild_id else {
@@ -30,13 +30,16 @@ pub async fn check_afk_status(ctx: &Context, msg: &Message) {
     let Some(status) = ({
         // Check AFK status of user
         let afk_data = afk_repo.read().await;
-        match afk_data.get(&AFKAccess::Guild(guild_id, user.id)) {
-            Some(status) => Some(status.clone()), // User has server specific AFK status
-            None => afk_data.get(&AFKAccess::User(user.id)).cloned(), // User has global AFK status
-        }
+        afk_data.get(&guild_id, &user.id).map(|s| s.clone())
     }) else {
         return;
     };
+
+    let status = {
+        let status = status.read().await;
+        status.clone()
+    };
+
     let current_time = Utc::now();
     let elapsed_time = current_time - status.last_active;
 
@@ -51,8 +54,7 @@ pub async fn check_afk_status(ctx: &Context, msg: &Message) {
     };
 
     let mut repo = afk_repo.write().await;
-    repo.remove(&AFKAccess::Guild(guild_id, user.id))
-        .or_else(|| repo.remove(&AFKAccess::User(user.id)));
+    repo.remove(&guild_id, &user.id);
 }
 
 pub async fn notify_afk_mentions(ctx: Context, msg: Message) {
@@ -73,33 +75,35 @@ pub async fn notify_afk_mentions(ctx: Context, msg: Message) {
         if ref_msg.author.id == msg.author.id {
             return; // Ignore self-replies
         }
-        handle_message(ctx.http(), &afk_repo, &ref_msg.author.id, guild_id, &msg).await;
+        handle_message(ctx.http(), &afk_repo, &ref_msg.author.id, &guild_id, &msg).await;
     }
 
     for user in &msg.mentions {
         if user.id == msg.author.id {
             continue; // Ignore self-mentions
         }
-        handle_message(ctx.http(), &afk_repo, &user.id, guild_id, &msg).await;
+        handle_message(ctx.http(), &afk_repo, &user.id, &guild_id, &msg).await;
     }
 }
 
 async fn handle_message(
     http: &Http,
-    repo: &Arc<RwLock<UserAFKRepo>>,
+    repo: &Arc<RwLock<UserConfigHash<UserAFKData>>>,
     user_id: &UserId,
-    guild_id: GuildId,
+    guild_id: &GuildId,
     msg: &Message,
 ) {
     let Some(status) = ({
-        // Check AFK status of mentioned user
+        // Check AFK status of user
         let afk_data = repo.read().await;
-        match afk_data.get(&AFKAccess::Guild(guild_id, *user_id)) {
-            Some(status) => Some(status.clone()), // User has server specific AFK status
-            None => afk_data.get(&AFKAccess::User(*user_id)).cloned(), // User has global AFK status
-        }
+        afk_data.get(guild_id, user_id).map(|s| s.clone())
     }) else {
         return;
+    };
+
+    let status = {
+        let status = status.read().await;
+        status.clone()
     };
     let Ok(timestamp) = Timestamp::from_millis(status.last_active.timestamp_millis())
         .map(|ts| FormattedTimestamp::new(ts, Some(FormattedTimestampStyle::RelativeTime)))

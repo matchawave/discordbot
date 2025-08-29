@@ -1,7 +1,11 @@
+mod voice_master;
+
 use serenity::all::{CacheHttp, Context, CreateMessage, Message};
 use utils::error;
 
 use crate::{ServerPrefix, ServerPrefixes};
+
+pub use voice_master::*;
 
 pub async fn is_asking_for_bot_prefix(ctx: &Context, msg: &Message) -> bool {
     let bot_id = ctx.cache.current_user().id.get();

@@ -7,7 +7,7 @@ use utils::info;
 use crate::{ElapsedTime, Environment};
 
 mod commands;
-mod help;
+mod misc;
 mod ready;
 mod user_afk;
 
@@ -41,7 +41,7 @@ impl EventHandler for Handler {
         println!("Rcv msg: {}", msg.content);
         tokio::spawn(user_afk::notify_afk_mentions(ctx.clone(), msg.clone()));
         user_afk::check_afk_status(&ctx, &msg).await;
-        if help::is_asking_for_bot_prefix(&ctx, &msg).await {
+        if misc::is_asking_for_bot_prefix(&ctx, &msg).await {
             return;
         }
         if commands::message::is_command(&ctx, &msg).await {

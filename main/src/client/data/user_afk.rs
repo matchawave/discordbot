@@ -8,25 +8,20 @@ use serenity::{
 };
 use tokio::sync::RwLock;
 
+use crate::{BotHash, UserConfigHash};
+
 pub struct UserAFK;
-pub type UserAFKRepo = HashMap<AFKAccess, UserAFKData>;
 impl TypeMapKey for UserAFK {
-    type Value = Arc<RwLock<UserAFKRepo>>;
+    type Value = Arc<RwLock<UserConfigHash<UserAFKData>>>;
 }
 
 pub struct ServerAFKConfigRepo;
 impl TypeMapKey for ServerAFKConfigRepo {
-    type Value = Arc<RwLock<HashMap<GuildId, RwLock<ServerAFKConfig>>>>;
+    type Value = Arc<RwLock<BotHash<GuildId, ServerAFKConfig>>>;
 }
 
 pub struct ServerAFKConfig {
     pub template: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum AFKAccess {
-    Guild(GuildId, UserId),
-    User(UserId),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
