@@ -7,10 +7,18 @@ use serenity::{
 };
 use tokio::sync::RwLock;
 
+use crate::{BotHash, UserConfigHash};
+
 pub struct VoiceHub;
 impl TypeMapKey for VoiceHub {
-    type Value = Arc<RwLock<HashMap<GuildId, RwLock<VoiceMasterConfig>>>>;
+    type Value = Arc<RwLock<BotHash<GuildId, VoiceMasterConfig>>>;
 }
+
+pub struct VoiceUserConfigRepo;
+impl TypeMapKey for VoiceUserConfigRepo {
+    type Value = Arc<RwLock<UserConfigHash<UserVoiceConfig>>>;
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VoiceMasterConfig {
     master: Vec<MasterVoiceChannel>,
@@ -27,6 +35,20 @@ pub struct ActiveVoiceChannel {
 pub struct MasterVoiceChannel {
     pub id: ChannelId,
     pub category: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserVoiceConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bitrate: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_limit: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate_limit_per_user: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locked: Option<bool>,
 }
 
 impl MasterVoiceChannel {
