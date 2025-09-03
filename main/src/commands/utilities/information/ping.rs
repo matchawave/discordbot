@@ -66,12 +66,9 @@ impl CommandTrait for Command {
             CommandArguments::Slash(_, interaction) => interaction.id.created_at().to_utc(),
             CommandArguments::Legacy(_, message) => message.timestamp.to_utc(),
         };
-        println!("Current time: {}, Created at: {}", current_time, created_at);
-        let elapsed = {
-            latency
-                .map(|latency| latency.as_millis())
-                .unwrap_or((current_time - created_at).abs().num_milliseconds() as u128)
-        };
+        let elapsed = latency
+            .map(|latency| latency.as_millis())
+            .unwrap_or((current_time - created_at).abs().num_milliseconds() as u128);
         response_message = response_message.replace("{time}", format!("{}ms", elapsed).as_str());
 
         let edit_timer = ElapsedTime::new();
@@ -105,13 +102,12 @@ impl CommandTrait for Command {
                 }
             }
             CommandArguments::Legacy(_, _) => {
-                if let Some(mut m) = new_msg {
-                    if let Err(e) = m
+                if let Some(mut m) = new_msg
+                    && let Err(e) = m
                         .edit(http, EditMessage::new().content(response_message))
                         .await
-                    {
-                        error!("Failed to edit message: {}", e);
-                    }
+                {
+                    error!("Failed to edit message: {}", e);
                 }
             }
         }

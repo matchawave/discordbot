@@ -1,14 +1,10 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use serenity::{
-    all::{GuildId, UserId},
-    prelude::TypeMapKey,
-};
+use serenity::{all::GuildId, prelude::TypeMapKey};
 use tokio::sync::RwLock;
-
-use crate::{BotHash, UserConfigHash};
+use utils::{BotHash, UserConfigHash};
 
 pub struct UserAFK;
 impl TypeMapKey for UserAFK {

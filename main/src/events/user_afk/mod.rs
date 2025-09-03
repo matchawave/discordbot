@@ -9,9 +9,9 @@ use serenity::{
     utils::FormattedTimestamp,
 };
 use tokio::sync::RwLock;
-use utils::{LegacyOption, error, warning};
+use utils::{LegacyOption, UserConfigHash, error, warning};
 
-use crate::{UserAFK, UserAFKData, UserConfigHash, UserGlobalType};
+use crate::{UserAFK, UserAFKData};
 
 pub async fn check_afk_status(ctx: &Context, msg: &Message) {
     let Some(guild_id) = msg.guild_id else {
@@ -30,14 +30,9 @@ pub async fn check_afk_status(ctx: &Context, msg: &Message) {
     let Some(status) = ({
         // Check AFK status of user
         let afk_data = afk_repo.read().await;
-        afk_data.get(&guild_id, &user.id).map(|s| s.clone())
+        afk_data.get_raw(&guild_id, &user.id).map(|s| s.clone())
     }) else {
         return;
-    };
-
-    let status = {
-        let status = status.read().await;
-        status.clone()
     };
 
     let current_time = Utc::now();
@@ -96,15 +91,11 @@ async fn handle_message(
     let Some(status) = ({
         // Check AFK status of user
         let afk_data = repo.read().await;
-        afk_data.get(guild_id, user_id).map(|s| s.clone())
+        afk_data.get_raw(guild_id, user_id).map(|s| s.clone())
     }) else {
         return;
     };
 
-    let status = {
-        let status = status.read().await;
-        status.clone()
-    };
     let Ok(timestamp) = Timestamp::from_millis(status.last_active.timestamp_millis())
         .map(|ts| FormattedTimestamp::new(ts, Some(FormattedTimestampStyle::RelativeTime)))
     else {

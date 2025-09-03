@@ -17,7 +17,7 @@ serde_json = { version = "1"}
 toml = { version = "0.9" }
 
 chrono = { workspace = true }
-regex = { version = "1.11" }
+regex = { workspace = true }
 url = { version = "2.5" }
 colored = { workspace = true }
 rprompt = { version = "2.2" }

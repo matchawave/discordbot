@@ -5,9 +5,11 @@ use serenity::{
     async_trait,
 };
 
-use utils::{CommandArguments, CommandResponse, CommandTemplate, CommandTrait, ICommand};
+use utils::{
+    CommandArguments, CommandResponse, CommandTemplate, CommandTrait, ICommand, UserGlobalType,
+};
 
-use crate::{UserAFK, UserAFKData, UserGlobalType};
+use crate::{UserAFK, UserAFKData};
 
 const COMMAND_NAME: &str = "afk";
 const COMMAND_DESCRIPTION: &str = "Set your AFK status";
@@ -76,35 +78,19 @@ impl CommandTrait for Command {
 
         {
             let repo = afk_repo.read().await;
-            match repo.get(&UserGlobalType::Guild(guild_id, user.id)) {
-                Some(_) => {
-                    return Some(
-                        CommandResponse::new_content(
-                            "You are already marked as AFK in this server.".to_string(),
-                        )
-                        .reply(),
-                    );
-                } // User has server specific AFK status
-                None => {
-                    if afk_repo
-                        .read()
-                        .await
-                        .get(&UserGlobalType::User(user.id))
-                        .is_some()
-                    {
-                        return Some(
-                            CommandResponse::new_content(
-                                "You are already marked as AFK globally.".to_string(),
-                            )
-                            .reply(),
-                        );
-                    }
-                }
+            if let Some(status) = repo.get_raw(&guild_id, &user.id) {
+                return Some(
+                    CommandResponse::new_content(format!(
+                        "You are now AFK with the status: {}",
+                        status.afk_status
+                    ))
+                    .reply(),
+                );
             }
         }
 
         let mut repo = afk_repo.write().await;
-        repo.insert(crate::UserGlobalType::User(user.id), status.clone());
+        repo.insert(UserGlobalType::User(user.id), status.clone());
 
         Some(
             CommandResponse::new_content(format!(

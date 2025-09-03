@@ -6,9 +6,10 @@ mod prefixes;
 mod user_afk;
 mod voice_master;
 
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
+use utils::{BotHash, UserConfigHash};
 
-use serenity::Client;
+use serenity::{Client, all::GuildId};
 
 pub async fn build_data(client: Client, env: Env) -> Client {
     let (commands_vec, commands_map) = commands::load_commands();
@@ -19,8 +20,10 @@ pub async fn build_data(client: Client, env: Env) -> Client {
     data.insert::<Environment>(env);
     data.insert::<Commands>(commands_map);
     data.insert::<RegisteringCommands>(commands_vec);
-    data.insert::<VoiceHub>(Arc::new(BotHash::new().into()));
+
+    data.insert::<VoiceHub>(Arc::new(test_voice_hub().into()));
     data.insert::<UserAFK>(Arc::new(UserConfigHash::new().into()));
+    data.insert::<UserVoiceConfigRepo>(Arc::new(UserConfigHash::new().into()));
     client
 }
 
@@ -30,5 +33,3 @@ pub use extras::*;
 pub use prefixes::{ServerPrefix, ServerPrefixes};
 pub use user_afk::*;
 pub use voice_master::*;
-
-use crate::{BotHash, UserConfigHash};
