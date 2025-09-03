@@ -1,10 +1,10 @@
 use serenity::{
-    all::{Context, EventHandler, Guild, Interaction, Message, Ready, UnavailableGuild},
+    all::{
+        Context, EventHandler, Guild, Interaction, Message, Ready, UnavailableGuild, VoiceState,
+    },
     async_trait,
 };
 use utils::info;
-
-use crate::{ElapsedTime, Environment};
 
 mod commands;
 mod misc;
@@ -51,5 +51,9 @@ impl EventHandler for Handler {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         commands::interactions::handle(&ctx, &interaction).await;
+    }
+
+    async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
+        misc::handle_voice_master(&ctx, &old, &new).await;
     }
 }
