@@ -1,17 +1,13 @@
 use std::sync::Arc;
 
-use serenity::{
-    all::{
-        CacheHttp, ChannelId, ChannelType, Context, CreateChannel, Guild, GuildChannel, Member,
-        UserId, VoiceState,
-    },
-    futures::channel,
+use serenity::all::{
+    CacheHttp, ChannelId, ChannelType, Context, CreateChannel, Guild, GuildChannel, Member, UserId,
+    VoiceState,
 };
 use tokio::sync::RwLock;
 use utils::{BotStringParser, info};
 
 use crate::{ElapsedTime, UserVoiceConfigRepo, VoiceConfig, VoiceHub, VoiceMasterConfig};
-type Config = Arc<RwLock<VoiceConfig>>;
 
 struct VoiceMaster<'a> {
     member: &'a Member,
@@ -34,23 +30,41 @@ pub async fn handle_voice_master(ctx: &Context, old: &Option<VoiceState>, new: &
         None => return,
     };
 
-    if let Some(old) = old {
-        match (old.channel_id, new.channel_id) {
-            (_, Some(_)) => {}
-            (Some(old_channel_id), None) => {
-                let Some(channel) = guild.channels.get(&old_channel_id) else {
-                    return;
-                };
-                if channel.kind != ChannelType::Voice {
-                    return;
-                }
+    if let Some(old) = old
+        && let (Some(old_channel_id), _) = (old.channel_id, new.channel_id)
+    {
+        let Some(channel) = guild.channels.get(&old_channel_id) else {
+            return;
+        };
+        if channel.kind != ChannelType::Voice {
+            return;
+        }
+        info!(
+            "{} left voice channel {} in {}({})",
+            member.user.name, old_channel_id, guild.name, guild_id
+        );
+        let master = VoiceMaster::new(ctx, member, &guild, channel);
+        match master.handle_channel_deletion().await {
+            Ok(_) => {
                 info!(
-                    "{} left voice channel {} in {}",
-                    member.user.name, old_channel_id, guild.name
+                    "{} deleted voice channel {} for guild: {}({}) ({}ms)",
+                    member.user.name,
+                    old_channel_id,
+                    guild.name,
+                    guild_id,
+                    timer.elapsed_ms()
                 );
-                let master = VoiceMaster::new(ctx, member, &guild, channel);
             }
-            _ => return,
+            Err(err) => {
+                info!(
+                    "Failed to delete voice channel for {} in guild {}({}): {} ({}ms)",
+                    member.user.name,
+                    guild.name,
+                    guild_id,
+                    err,
+                    timer.elapsed_ms()
+                );
+            }
         }
     }
     let Some(channel_id) = new.channel_id else {
@@ -64,15 +78,24 @@ pub async fn handle_voice_master(ctx: &Context, old: &Option<VoiceState>, new: &
     match master.handle_channel_creation(parser).await {
         Ok((_, new_channel)) => {
             info!(
-                "{} created voice channel {} for guild: {} ({}ms)",
+                "{} created voice channel {} for guild: {}({}) ({}ms)",
                 member.user.name,
                 new_channel.id,
                 guild.name,
+                guild_id,
                 timer.elapsed_ms()
             );
         }
         Err(err) => {
             // Failed to create a new channel
+            info!(
+                "Failed to create voice channel for {} in guild {}({}): {} ({}ms)",
+                member.user.name,
+                guild.name,
+                guild_id,
+                err,
+                timer.elapsed_ms()
+            );
         }
     }
 }
@@ -121,47 +144,83 @@ impl<'a> VoiceMaster<'a> {
         &'a self,
         parser: &'a mut BotStringParser<'a>,
     ) -> Result<(UserId, GuildChannel), String> {
-        match self.voice_master_config().await {
-            Some(hub) => {
-                let voice_master_config = hub.read().await.clone();
-                if !voice_master_config.is_master(&self.channel.id) {
-                    return Err("Not a voice master channel".to_string());
-                }
-                let server_config = voice_master_config.config().cloned();
-                let user_config = {
-                    let user_config = self.user_config().await.clone();
-                    if let Some(config) = user_config {
-                        Some(config.read().await.clone())
-                    } else {
-                        None
-                    }
-                };
+        let voice_master_config = match self.voice_master_config().await {
+            Some(hub) => hub.read().await.clone(),
+            None => return Err("Voice master config not found".into()),
+        };
 
-                // Create the channel configuration in a separate scope to end the mutable borrow
-                let channel_config = {
-                    // Only borrow self mutably for channel creation, then release
-                    self.create_channel(user_config, server_config, parser)
-                };
-                // After channel_config is created, we can safely clone guild
-
-                match self
-                    .guild
-                    .create_channel(self.ctx.http(), channel_config)
-                    .await
-                {
-                    Ok(new_channel) => {
-                        self.move_member(&new_channel).await?;
-                        Ok((self.member.user.id, new_channel))
-                    }
-                    Err(why) => Err(format!("Failed to create channel: {:?}", why)),
-                }
-            }
-            None => Err("Voice master config not found".into()),
+        if !voice_master_config.is_master(&self.channel.id) {
+            return Err("Not a voice master channel".to_string());
         }
+        let server_config = voice_master_config.config().cloned();
+        let user_config = {
+            let user_config = self.user_config().await.clone();
+            if let Some(config) = user_config {
+                Some(config.read().await.clone())
+            } else {
+                None
+            }
+        };
+
+        let parent_id = voice_master_config.parent_id();
+
+        // Create the channel configuration in a separate scope to end the mutable borrow
+        let channel_config = {
+            // Only borrow self mutably for channel creation, then release
+            self.create_channel(parent_id, user_config, server_config, parser)
+        };
+        // After channel_config is created, we can safely clone guild
+
+        match self
+            .guild
+            .create_channel(self.ctx.http(), channel_config)
+            .await
+        {
+            Ok(new_channel) => {
+                self.move_member(&new_channel).await?;
+                Ok((self.member.user.id, new_channel))
+            }
+            Err(why) => Err(format!("Failed to create channel: {:?}", why)),
+        }
+    }
+
+    pub async fn handle_channel_deletion(&self) -> Result<(), String> {
+        let voice_master_config = match self.voice_master_config().await {
+            Some(hub) => hub.read().await.clone(),
+            None => return Err("Voice master config not found".into()),
+        };
+
+        if voice_master_config.is_master(&self.channel.id) {
+            return Err("This is the voice master channel".to_string());
+        }
+
+        if !voice_master_config.is_active(&self.channel.id) {
+            return Err("Channel is not managed by voice master".to_string());
+        }
+
+        let channel = self.channel;
+        if channel.kind != ChannelType::Voice {
+            return Err("Channel is not a voice channel".to_string());
+        }
+
+        let Ok(members) = channel.members(&self.ctx.cache) else {
+            return Err("Failed to get channel members".into());
+        };
+
+        if !members.is_empty() {
+            return Err("Channel is not empty".into());
+        }
+
+        if let Err(why) = self.channel.delete(self.ctx.http()).await {
+            return Err(format!("Failed to delete channel: {:?}", why));
+        }
+        self.remove_active_channel(&channel.id).await;
+        Ok(())
     }
 
     fn create_channel(
         &'a self,
+        parent_id: Option<&ChannelId>,
         user_config: Option<VoiceConfig>,
         server_config: Option<VoiceConfig>,
         parser: &'a mut BotStringParser<'a>,
@@ -181,14 +240,13 @@ impl<'a> VoiceMaster<'a> {
                     config.to_channel(parser, new_channel)
                 }
                 None => {
-                    let new_channel = CreateChannel::new(format!("{}'s channel", user.name))
-                        .kind(ChannelType::Voice);
-
-                    new_channel
+                    CreateChannel::new(format!("{}'s channel", user.name)).kind(ChannelType::Voice)
                 }
             },
         };
-        if let Some(parent) = channel.parent_id {
+        if let Some(parent_id) = parent_id {
+            new_channel = new_channel.category(*parent_id);
+        } else if let Some(parent) = channel.parent_id {
             new_channel = new_channel.category(parent);
         }
 
@@ -201,6 +259,14 @@ impl<'a> VoiceMaster<'a> {
         };
         let mut master = voice_master_config.write().await;
         master.add_active_channel(*channel, *owner);
+    }
+
+    pub async fn remove_active_channel(&self, channel: &ChannelId) {
+        let Some(voice_master_config) = self.voice_master_config().await else {
+            return;
+        };
+        let mut master = voice_master_config.write().await;
+        master.remove_active_channel(channel);
     }
 
     pub async fn move_member(&self, channel: &GuildChannel) -> Result<(), String> {

@@ -25,6 +25,7 @@ pub struct VoiceMasterConfig {
     master: Vec<MasterVoiceChannel>,
     active: Vec<ActiveVoiceChannel>,
     config: Option<VoiceConfig>,
+    parent_id: Option<ChannelId>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,6 +52,7 @@ impl VoiceMasterConfig {
             master,
             active: Vec::new(),
             config: None,
+            parent_id: None,
         }
     }
 
@@ -84,8 +86,16 @@ impl VoiceMasterConfig {
         self.config = Some(config);
     }
 
+    pub fn set_parent_id(&mut self, parent_id: ChannelId) {
+        self.parent_id = Some(parent_id);
+    }
+
     pub fn config(&self) -> Option<&VoiceConfig> {
         self.config.as_ref()
+    }
+
+    pub fn parent_id(&self) -> Option<&ChannelId> {
+        self.parent_id.as_ref()
     }
 }
 
@@ -138,12 +148,17 @@ impl VoiceConfig {
 
 pub fn test_voice_hub() -> BotHash<GuildId, VoiceMasterConfig> {
     let mut voice_hub = BotHash::new();
-    voice_hub.insert(
-        GuildId::from(851102546470371338),
-        VoiceMasterConfig::new(vec![MasterVoiceChannel::new(
-            ChannelId::from(851183230359306251),
-            None,
-        )]),
-    );
+    let mut config = VoiceMasterConfig::new(vec![MasterVoiceChannel::new(
+        ChannelId::from(851183230359306251),
+        None,
+    )]);
+    config.set_config(VoiceConfig {
+        name: Some("🔊 {user.display_name}'s Channel".to_string()),
+        bitrate: None,
+        user_limit: Some(5),
+        locked: None,
+    });
+    config.set_parent_id(ChannelId::from(1413051787308437584));
+    voice_hub.insert(GuildId::from(851102546470371338), config);
     voice_hub
 }
