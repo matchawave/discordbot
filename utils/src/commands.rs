@@ -3,10 +3,10 @@ use std::{any::TypeId, collections::HashMap, fmt::Display, process, sync::Arc};
 use chrono::{Duration, TimeDelta};
 use serenity::{
     all::{
-        AutocompleteOption, ChannelId, CommandDataOptionValue, CommandInteraction, CommandType,
-        Context, CreateActionRow, CreateAttachment, CreateCommandOption, CreateEmbed,
-        CreateInteractionResponseMessage, CreateMessage, CreatePoll, GuildId, Message, RoleId,
-        User, UserId, create_poll::Ready,
+        AutocompleteOption, Channel, ChannelId, CommandDataOptionValue, CommandInteraction,
+        CommandType, Context, CreateActionRow, CreateAttachment, CreateCommandOption, CreateEmbed,
+        CreateInteractionResponseMessage, CreateMessage, CreatePoll, Guild, GuildChannel, GuildId,
+        Member, Message, RoleId, User, UserId, create_poll::Ready,
     },
     async_trait,
     json::Value,
@@ -19,14 +19,15 @@ pub trait CommandTrait: Send + Sync {
     async fn execute<'a>(
         &self,
         ctx: &'a Context,
-        user: &'a User,
-        channel: Option<(GuildId, ChannelId)>,
+        user: UserType,
+        location: Option<(Guild, GuildChannel)>,
         args: CommandArguments<'a>,
-    ) -> Option<CommandResponse>;
+    ) -> Result<Option<CommandResponse>, String>;
     async fn autocomplete<'a>(
         &self,
         ctx: &'a Context,
-        user: &'a User,
+        user: UserType,
+        location: Option<(Guild, GuildChannel)>,
         focused: AutocompleteOption<'a>,
         interaction: &'a CommandInteraction,
     ) -> Option<AutocompleteResponse> {
@@ -292,6 +293,11 @@ pub enum LegacyOption {
     Time(Duration),
     Integer(i64),
     Boolean(bool),
+}
+
+pub enum UserType {
+    User(User),
+    Member(Member),
 }
 
 impl LegacyOption {

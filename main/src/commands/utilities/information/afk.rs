@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
 use serenity::{
-    all::{ChannelId, CommandType, Context, GuildId, User},
+    all::{CommandType, Context, Guild, GuildChannel},
     async_trait,
 };
 
 use utils::{
     CommandArguments, CommandResponse, CommandTemplate, CommandTrait, ICommand, UserGlobalType,
+    UserType,
 };
 
 use crate::{UserAFK, UserAFKData};
@@ -61,11 +62,17 @@ impl CommandTrait for Command {
     async fn execute<'a>(
         &self,
         ctx: &'a Context,
-        user: &'a User,
-        guild_and_channel: Option<(GuildId, ChannelId)>,
+        user: UserType,
+        location: Option<(Guild, GuildChannel)>,
         args: CommandArguments<'a>,
-    ) -> Option<CommandResponse> {
-        let (guild_id, _) = guild_and_channel?;
+    ) -> Result<Option<CommandResponse>, String> {
+        let Some((guild, _)) = location else {
+            return Err("This command can only be used in a guild".into());
+        };
+        let UserType::Member(member) = user else {
+            return Err("This command can only be used by a guild member".into());
+        };
+        let user = &member.user;
 
         let status = get_status(&args).map(UserAFKData::new).unwrap_or_default();
 
@@ -78,26 +85,26 @@ impl CommandTrait for Command {
 
         {
             let repo = afk_repo.read().await;
-            if let Some(status) = repo.get_raw(&guild_id, &user.id) {
-                return Some(
+            if let Some(status) = repo.get_raw(&guild.id, &user.id) {
+                return Ok(Some(
                     CommandResponse::new_content(format!(
                         "You are now AFK with the status: {}",
                         status.afk_status
                     ))
                     .reply(),
-                );
+                ));
             }
         }
 
         let mut repo = afk_repo.write().await;
         repo.insert(UserGlobalType::User(user.id), status.clone());
 
-        Some(
+        Ok(Some(
             CommandResponse::new_content(format!(
                 "You are now AFK with the status: {}",
                 status.afk_status
             ))
             .reply(),
-        )
+        ))
     }
 }

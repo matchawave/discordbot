@@ -5,11 +5,32 @@ use serenity::{
     },
     json::Value,
 };
-use utils::error;
+use utils::{UserType, error, warning};
 
 use crate::Commands;
 
 pub async fn handle(ctx: &Context, autocomplete: &CommandInteraction) -> Option<String> {
+    let Some(guild_id) = autocomplete.guild_id else {
+        warning!(
+            "Command '{}' invoked outside of a guild",
+            autocomplete.data.name
+        );
+        return None;
+    };
+    let location = {
+        let guild = guild_id.to_guild_cached(&ctx.cache).map(|g| g.clone());
+        guild.and_then(|g| {
+            let channel = g.channels.get(&autocomplete.channel_id).cloned()?;
+            Some((g, channel))
+        })
+    };
+
+    let user = autocomplete
+        .member
+        .as_ref()
+        .map(|m| UserType::Member(*m.clone()))
+        .unwrap_or(UserType::User(autocomplete.user.clone()));
+
     let name = autocomplete.data.name.clone();
     let commands = {
         let data = ctx.data.read().await;
@@ -28,10 +49,11 @@ pub async fn handle(ctx: &Context, autocomplete: &CommandInteraction) -> Option<
         return None;
     }
 
-    let user = autocomplete.user.clone();
-
     let focused = autocomplete.data.autocomplete()?;
-    let Some(response) = c.autocomplete(ctx, &user, focused, autocomplete).await else {
+    let Some(response) = c
+        .autocomplete(ctx, user, location, focused, autocomplete)
+        .await
+    else {
         error!("Failed to get autocomplete response for command '{}'", name);
         return None;
     };

@@ -1,11 +1,29 @@
 use std::collections::HashMap;
 
 use serenity::all::{CacheHttp, CommandInteraction, Context, CreateInteractionResponse};
-use utils::{CommandArguments, error, warning};
+use utils::{CommandArguments, UserType, error, warning};
 
 use crate::Commands;
 
 pub async fn handle(ctx: &Context, command: &CommandInteraction) -> Option<String> {
+    let Some(guild_id) = command.guild_id else {
+        warning!("Command '{}' invoked outside of a guild", command.data.name);
+        return None;
+    };
+    let location = {
+        let guild = guild_id.to_guild_cached(&ctx.cache).map(|g| g.clone());
+        guild.and_then(|g| {
+            let channel = g.channels.get(&command.channel_id).cloned()?;
+            Some((g, channel))
+        })
+    };
+
+    let user = command
+        .member
+        .as_ref()
+        .map(|m| UserType::Member(*m.clone()))
+        .unwrap_or(UserType::User(command.user.clone()));
+
     let commands = {
         let data = ctx.data.read().await;
         data.get::<Commands>()
@@ -36,22 +54,25 @@ pub async fn handle(ctx: &Context, command: &CommandInteraction) -> Option<Strin
         }
     };
     let args = CommandArguments::Slash(options, command);
-    let channel = command.channel_id;
-    let guild_and_channel = command.guild_id.map(|g| (g, channel));
-    // TODO: Check User Permissions
 
-    if let Some(response) = c.execute(ctx, &command.user, guild_and_channel, args).await {
-        if let Err(e) = command
-            .create_response(
-                ctx.http(),
-                CreateInteractionResponse::Message(response.to_interaction_msg()),
-            )
-            .await
-        {
-            error!("Failed to send response to command '{}': {}", c_name, e);
-            return None;
+    match c.execute(ctx, user, location, args).await {
+        Ok(r) => {
+            if let Some(response) = r
+                && let Err(e) = command
+                    .create_response(
+                        ctx.http(),
+                        CreateInteractionResponse::Message(response.to_interaction_msg()),
+                    )
+                    .await
+            {
+                error!("Failed to send response to command '{}': {}", c_name, e);
+                return None;
+            }
+            Some(c_name)
+        }
+        Err(e) => {
+            error!("Error executing command '{}': {}", c_name, e);
+            None
         }
     }
-
-    Some(c_name)
 }

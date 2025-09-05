@@ -1,5 +1,5 @@
 use serenity::all::{CacheHttp, Context, Message};
-use utils::{CommandArguments, LegacyOption, error, info, warning};
+use utils::{CommandArguments, LegacyOption, UserType, error, info, warning};
 
 use crate::{Commands, ElapsedTime, ServerPrefix, ServerPrefixes};
 
@@ -13,7 +13,24 @@ pub async fn is_command(ctx: &Context, msg: &Message) -> bool {
         return false;
     };
 
-    let channel_id = msg.channel_id;
+    let location = {
+        let guild = guild_id.to_guild_cached(&ctx.cache).map(|g| g.clone());
+        guild.and_then(|g| {
+            let channel = g.channels.get(&msg.channel_id).cloned()?;
+            Some((g, channel))
+        })
+    };
+
+    let member = match location {
+        Some((ref guild, _)) => match guild.members.get(&msg.author.id) {
+            Some(m) => UserType::Member(m.clone()),
+            None => match guild.member(&ctx.http, msg.author.id).await {
+                Ok(m) => UserType::Member(m.clone().into_owned()),
+                Err(_) => UserType::User(msg.author.clone()),
+            },
+        },
+        None => UserType::User(msg.author.clone()),
+    };
 
     let prefix = {
         let data = ctx.data.read().await;
@@ -64,20 +81,26 @@ pub async fn is_command(ctx: &Context, msg: &Message) -> bool {
 
     let args = CommandArguments::Legacy(Some(options), msg);
 
-    if let Some(msg_response) = c
-        .execute(ctx, &msg.author, Some((guild_id, channel_id)), args)
-        .await
-    {
-        let mut new_msg = msg_response.to_msg();
-        if msg_response.should_reply() {
-            new_msg = new_msg.reference_message(msg);
+    match c.execute(ctx, member, location.clone(), args).await {
+        Ok(r) => {
+            if let Some(msg_response) = r {
+                let mut new_msg = msg_response.to_msg();
+                if msg_response.should_reply() {
+                    new_msg = new_msg.reference_message(msg);
+                }
+                if let Some((_, channel)) = location
+                    && let Err(e) = channel.send_message(ctx.http(), new_msg).await
+                {
+                    error!("Failed to send message: {}", e);
+                    return false;
+                }
+            }
+            info!("Executed command '{}' ({}ms)", c_name, timer.elapsed_ms());
+            true
         }
-        if let Err(e) = channel_id.send_message(ctx.http(), new_msg).await {
-            error!("Failed to send message: {}", e);
-            return false;
-        };
-
-        return true;
+        Err(e) => {
+            error!("Error executing command '{}': {}", c_name, e);
+            false
+        }
     }
-    false
 }

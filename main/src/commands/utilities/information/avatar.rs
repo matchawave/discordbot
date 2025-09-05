@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use serenity::{
     all::{
-        AutocompleteOption, Channel, ChannelId, CommandInteraction, CommandType, Context, Guild,
-        GuildChannel, GuildId, Member, User,
+        AutocompleteOption, ChannelId, CommandInteraction, CommandOptionType, CommandType, Context,
+        CreateCommandOption, Guild, GuildChannel, GuildId, User,
     },
     async_trait,
 };
@@ -13,18 +13,23 @@ use utils::{
     ICommand, UserType,
 };
 
-const COMMAND_NAME: &str = "";
-const COMMAND_DESCRIPTION: &str = "";
+const COMMAND_NAME: &str = "avatar";
+const COMMAND_DESCRIPTION: &str = "Get the avatar of a user";
 
 pub struct Command;
 
 pub fn command() -> CommandTemplate {
+    let user_option = CreateCommandOption::new(
+        CommandOptionType::User,
+        "user",
+        "The user to get the avatar of",
+    );
     (
         ICommand::new(
             COMMAND_NAME.to_string(),
             COMMAND_DESCRIPTION.to_string(),
             CommandType::ChatInput,
-            vec![],
+            vec![user_option],
             vec![],
         ),
         Arc::new(Command),
@@ -40,28 +45,18 @@ impl CommandTrait for Command {
         channel: Option<(Guild, GuildChannel)>,
         args: CommandArguments<'a>,
     ) -> Result<Option<CommandResponse>, String> {
+        let target = match args {
+            CommandArguments::Legacy(args, _) => {
+                // if args
+            }
+            CommandArguments::Slash(arg, _) => {}
+        };
         Ok(Some(CommandResponse::default()))
     }
-    async fn autocomplete<'a>(
-        &self,
-        ctx: &'a Context,
-        user: UserType,
-        channel: Option<(Guild, GuildChannel)>,
-        focused: AutocompleteOption<'a>,
-        interaction: &'a CommandInteraction,
-    ) -> Option<AutocompleteResponse> {
-        // Handle autocomplete logic here
-        let mut response = AutocompleteResponse::new();
-
-        Some(response)
-    }
     fn is_legacy(&self) -> bool {
-        false
-    }
-    fn is_slash(&self) -> bool {
         true
     }
-    fn supports_autocomplete(&self) -> bool {
+    fn is_slash(&self) -> bool {
         true
     }
 }

@@ -3,12 +3,15 @@ use std::sync::Arc;
 use chrono::Utc;
 use serenity::{
     all::{
-        CacheHttp, ChannelId, CommandType, Context, CreateInteractionResponse,
-        CreateInteractionResponseMessage, EditInteractionResponse, EditMessage, GuildId, User,
+        CacheHttp, CommandType, Context, CreateInteractionResponse,
+        CreateInteractionResponseMessage, EditInteractionResponse, EditMessage, Guild,
+        GuildChannel,
     },
     async_trait,
 };
-use utils::{CommandArguments, CommandResponse, CommandTemplate, CommandTrait, ICommand, error};
+use utils::{
+    CommandArguments, CommandResponse, CommandTemplate, CommandTrait, ICommand, UserType, error,
+};
 
 use crate::{ElapsedTime, ShardManagerContainer};
 
@@ -41,24 +44,23 @@ impl CommandTrait for Command {
     async fn execute<'a>(
         &self,
         ctx: &'a Context,
-        _: &'a User,
-        _: Option<(GuildId, ChannelId)>,
+        _: UserType,
+        _: Option<(Guild, GuildChannel)>,
         args: CommandArguments<'a>,
-    ) -> Option<CommandResponse> {
+    ) -> Result<Option<CommandResponse>, String> {
         let shard_manager = {
             let data = ctx.data.read().await;
             let Some(data) = data.get::<ShardManagerContainer>().cloned() else {
-                error!("Shard manager not found");
-                return None;
+                return Err("Shard manager not found".into());
             };
             data
         };
 
         let latency = {
             let runner = shard_manager.runners.lock().await;
-            let info = runner.get(&ctx.shard_id)?;
-            info.latency
+            runner.get(&ctx.shard_id).and_then(|info| info.latency)
         };
+
         let current_time = Utc::now();
         let mut response_message = String::from("It took {time} to ping.");
         let http = ctx.http();
@@ -79,7 +81,7 @@ impl CommandTrait for Command {
                 interaction
                     .create_response(http, CreateInteractionResponse::Message(response))
                     .await
-                    .ok()?;
+                    .ok();
 
                 None
             }
@@ -112,6 +114,6 @@ impl CommandTrait for Command {
             }
         }
 
-        None
+        Ok(None)
     }
 }

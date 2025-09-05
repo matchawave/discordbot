@@ -2,14 +2,15 @@ use std::sync::Arc;
 
 use serenity::{
     all::{
-        ChannelId, CommandDataOptionValue, CommandType, Context, CreateCommandOption, GuildId, User,
+        CommandDataOptionValue, CommandType, Context, CreateCommandOption, Guild, GuildChannel,
+        GuildId,
     },
     async_trait,
 };
 
 use utils::{
     CommandArguments, CommandResponse, CommandTemplate, CommandTrait, Data, ICommand, LegacyOption,
-    PermissionLevel, error,
+    PermissionLevel, UserType, error,
 };
 
 use crate::{ServerPrefix, ServerPrefixes};
@@ -63,11 +64,14 @@ impl CommandTrait for Command {
     async fn execute<'a>(
         &self,
         ctx: &'a Context,
-        _: &'a User,
-        guild_and_channel: Option<(GuildId, ChannelId)>,
+        _: UserType,
+        location: Option<(Guild, GuildChannel)>,
         args: CommandArguments<'a>,
-    ) -> Option<CommandResponse> {
-        let (guild_id, _) = guild_and_channel?;
+    ) -> Result<Option<CommandResponse>, String> {
+        let Some((guild, _)) = location else {
+            error!("This command can only be used in a server");
+            return Err("This command can only be used in a server.".into());
+        };
         let data = ctx.data.clone();
         let res = match args {
             CommandArguments::Slash(Some(options), _) => {
@@ -81,10 +85,10 @@ impl CommandTrait for Command {
                             error!("Expected string value for prefix");
                             panic!()
                         };
-                        set(data, value, guild_id).await
+                        set(data, value, guild.id).await
                     }
-                    Some(("remove", _)) => remove(data, guild_id).await,
-                    Some(("get", _)) => get(data, guild_id).await,
+                    Some(("remove", _)) => remove(data, guild.id).await,
+                    Some(("get", _)) => get(data, guild.id).await,
                     _ => {
                         error!("Unexpected command arguments");
                         panic!()
@@ -93,15 +97,15 @@ impl CommandTrait for Command {
             }
             CommandArguments::Legacy(options, _) => {
                 let Some(options) = options else {
-                    return Some(get(data, guild_id).await);
+                    return Ok(Some(get(data, guild.id).await));
                 };
 
                 match options.first() {
                     Some(LegacyOption::Text(value)) if value == "remove" => {
-                        remove(data, guild_id).await
+                        remove(data, guild.id).await
                     }
-                    Some(LegacyOption::Text(value)) => set(data, value.clone(), guild_id).await,
-                    _ => get(data, guild_id).await,
+                    Some(LegacyOption::Text(value)) => set(data, value.clone(), guild.id).await,
+                    _ => get(data, guild.id).await,
                 }
             }
             _ => {
@@ -109,7 +113,7 @@ impl CommandTrait for Command {
                 panic!()
             }
         };
-        Some(res.reply())
+        Ok(Some(res.reply()))
     }
     fn is_legacy(&self) -> bool {
         true
