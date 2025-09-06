@@ -126,6 +126,7 @@ impl ICommand {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum CommandArguments<'a> {
     Slash(
         Option<HashMap<String, CommandDataOptionValue>>,
