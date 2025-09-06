@@ -47,7 +47,7 @@ impl CommandTrait for Command {
     ) -> Result<Option<CommandResponse>, String> {
         let target = match args {
             CommandArguments::Legacy(args, _) => {
-                // if args
+                args.and_then(|arg| arg.first().and_then(|option| {}))
             }
             CommandArguments::Slash(arg, _) => {}
         };
