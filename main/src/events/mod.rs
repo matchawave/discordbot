@@ -1,59 +1,70 @@
+use std::pin::Pin;
+
 use serenity::{
-    all::{
-        Context, EventHandler, Guild, Interaction, Message, Ready, UnavailableGuild, VoiceState,
-    },
+    all::{Context, Event, RawEventHandler},
     async_trait,
 };
-use utils::info;
+use tokio::{sync::mpsc, task};
 
-mod commands;
-mod misc;
-mod ready;
-mod user_afk;
+mod automod;
+mod category;
+mod channel;
+mod guild;
+mod interaction;
+mod message;
+mod reaction;
+mod schedule;
+mod stage;
+mod state;
+mod thread;
+mod voice;
 
-pub struct Handler;
+pub struct Handler {
+    sender: mpsc::Sender<(Context, Event)>,
+}
+
+impl Handler {
+    pub fn new() -> Self {
+        let (send, recv) = mpsc::channel(10_000);
+        tokio::spawn(async move {
+            worker(recv).await;
+        });
+        Self { sender: send }
+    }
+}
 
 #[async_trait]
-impl EventHandler for Handler {
-    async fn guild_create(&self, ctx: Context, guild: Guild, is_new: Option<bool>) {
-        let _ = is_new;
-        info!(
-            "Joined guild: {} ({} members)",
-            guild.name, guild.member_count
-        );
-    }
-
-    async fn guild_delete(&self, ctx: Context, guild: UnavailableGuild, info: Option<Guild>) {
-        match info {
-            Some(g) => info!("Left guild: {} ({} members)", g.name, g.member_count),
-            None => info!("Guild {} got deleted", guild.id),
+impl RawEventHandler for Handler {
+    async fn raw_event(&self, ctx: Context, ev: Event) {
+        if let Err(e) = self.sender.send((ctx, ev)).await {
+            eprintln!("Error sending event: {}", e);
         }
     }
+}
 
-    async fn ready(&self, ctx: Context, ready: Ready) {
-        ready::handle(ctx, ready).await;
+#[rustfmt::skip]
+async fn worker(mut receiver: mpsc::Receiver<(Context, Event)>) {
+    while let Some((ctx, ev)) = receiver.recv().await {
+        task::spawn({
+            let ctx = ctx.clone();
+            async move {
+                match ev {
+                    Event::MessageCreate(ev) => message::create(ctx, ev.message).await,
+                    Event::MessageUpdate(ev) => message::update(ctx, ev).await,
+                    Event::MessageDelete(ev) => message::delete(ctx, ev.channel_id, ev.message_id, ev.guild_id).await,
+                    Event::MessageDeleteBulk(ev) => message::bulk_delete(ctx, ev.channel_id, ev.guild_id, ev.ids).await,
+                    Event::InteractionCreate(ev) => interaction::create(ctx, ev.interaction).await,
+                    Event::Ready(ev) => state::ready(ctx, ev.ready).await,
+                    Event::GuildCreate(ev) => guild::create(ctx, ev.guild).await,
+                    Event::GuildDelete(ev) => guild::delete(ctx, ev.guild).await,
+                    Event::VoiceStateUpdate(ev) => voice::state_update(ctx, ev.voice_state).await,
+                    _ => empty_handler().await,
+                }
+            }
+        });
     }
+}
 
-    async fn message(&self, ctx: Context, msg: Message) {
-        if msg.author.bot {
-            return;
-        }
-        println!("Rcv msg: {}", msg.content);
-        tokio::spawn(user_afk::notify_afk_mentions(ctx.clone(), msg.clone()));
-        user_afk::check_afk_status(&ctx, &msg).await;
-        if misc::is_asking_for_bot_prefix(&ctx, &msg).await {
-            return;
-        }
-        if commands::message::is_command(&ctx, &msg).await {
-            return;
-        }
-    }
-
-    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        commands::interactions::handle(&ctx, &interaction).await;
-    }
-
-    async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
-        misc::handle_voice_master(&ctx, &old, &new).await;
-    }
+async fn empty_handler() {
+    // do nothing
 }

@@ -9,7 +9,7 @@ use utils::{UserType, error, warning};
 
 use crate::Commands;
 
-pub async fn handle(ctx: &Context, autocomplete: &CommandInteraction) -> Option<String> {
+pub async fn handle(ctx: &Context, autocomplete: CommandInteraction) -> Option<String> {
     let Some(guild_id) = autocomplete.guild_id else {
         warning!(
             "Command '{}' invoked outside of a guild",
@@ -51,7 +51,7 @@ pub async fn handle(ctx: &Context, autocomplete: &CommandInteraction) -> Option<
 
     let focused = autocomplete.data.autocomplete()?;
     let Some(response) = c
-        .autocomplete(ctx, user, location, focused, autocomplete)
+        .autocomplete(ctx, user, location, focused, &autocomplete)
         .await
     else {
         error!("Failed to get autocomplete response for command '{}'", name);

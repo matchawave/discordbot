@@ -15,27 +15,6 @@ use crate::{UserAFK, UserAFKData};
 const COMMAND_NAME: &str = "afk";
 const COMMAND_DESCRIPTION: &str = "Set your AFK status";
 
-fn get_status<'a>(command: &CommandArguments<'a>) -> Option<String> {
-    match command {
-        CommandArguments::Slash(options, _) => options.clone().and_then(|m| {
-            m.get("status")
-                .and_then(|v| v.as_str().map(|s| s.to_string()))
-        }),
-        CommandArguments::Legacy(options, _) => options.clone().and_then(|opts| {
-            let output = opts
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>()
-                .join(" ");
-            if output.is_empty() {
-                None
-            } else {
-                Some(output)
-            }
-        }),
-    }
-}
-
 pub struct Command;
 
 pub fn command() -> CommandTemplate {
@@ -106,5 +85,26 @@ impl CommandTrait for Command {
             ))
             .reply(),
         ))
+    }
+}
+
+fn get_status<'a>(command: &CommandArguments<'a>) -> Option<String> {
+    match command {
+        CommandArguments::Slash(options, _) => options.clone().and_then(|m| {
+            m.get("status")
+                .and_then(|v| v.as_str().map(|s| s.to_string()))
+        }),
+        CommandArguments::Legacy(options, _) => options.clone().and_then(|opts| {
+            let output = opts
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .join(" ");
+            if output.is_empty() {
+                None
+            } else {
+                Some(output)
+            }
+        }),
     }
 }

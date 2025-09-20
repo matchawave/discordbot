@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use serenity::{all::GuildId, prelude::TypeMapKey};
 use tokio::sync::RwLock;
@@ -12,7 +12,7 @@ pub enum ServerPrefix {
 pub struct ServerPrefixes;
 pub type ServerPrefixesMap = HashMap<ServerPrefix, String>;
 impl TypeMapKey for ServerPrefixes {
-    type Value = RwLock<ServerPrefixesMap>;
+    type Value = Arc<RwLock<ServerPrefixesMap>>;
 }
 
 pub fn setup() -> ServerPrefixesMap {

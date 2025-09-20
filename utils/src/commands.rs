@@ -3,10 +3,14 @@ use std::{any::TypeId, collections::HashMap, fmt::Display, process, sync::Arc};
 use chrono::{Duration, TimeDelta};
 use serenity::{
     all::{
-        create_poll::Ready, AutocompleteOption, Channel, ChannelId, CommandDataOptionValue, CommandInteraction, CommandType, Context, CreateActionRow, CreateAttachment, CreateCommandOption, CreateEmbed, CreateInteractionResponseMessage, CreateMessage, CreatePoll, Guild, GuildChannel, GuildId, Member, Message, Role, RoleId, User, UserId
+        AutocompleteOption, Channel, ChannelId, CommandDataOptionValue, CommandInteraction,
+        CommandType, Context, CreateActionRow, CreateAttachment, CreateCommandOption, CreateEmbed,
+        CreateInteractionResponseMessage, CreateMessage, CreatePoll, Guild, GuildChannel, GuildId,
+        Member, Message, Role, RoleId, User, UserId, create_poll::Ready,
     },
     async_trait,
     json::Value,
+    model::error,
 };
 
 use crate::{PermissionLevel, error, warning};
@@ -299,7 +303,7 @@ pub enum UserType {
 }
 
 impl LegacyOption {
-    pub fn parse(content: &str, location: Option<(Guild, GuildChannel)>) -> Vec<Self> {
+    pub fn parse(content: &str, location: &Option<(Guild, GuildChannel)>) -> Vec<Self> {
         let mut options = Vec::new();
         let mut text: Option<String> = Option::None;
         for part in content.split(' ') {
@@ -328,19 +332,19 @@ impl LegacyOption {
                 if (part.starts_with("<@") || part.starts_with("<#")) && part.ends_with('>') {
                     let id_str = &part[2..part.len() - 1];
                     if let Some(id_str) = id_str.strip_prefix("&") {
-                        if let Ok(id) = id_str.parse::<u64>() && let Some((ref guild, _)) = location {
-                            let Some(role) = guild.roles.get(&RoleId::new(id)) {
-                                options.push(LegacyOption::Role(role.id));
+                        if let Ok(id) = id_str.parse::<u64>().map(RoleId::new)
+                            && let Some((guild, _)) = location
+                        {
+                            let Some(role) = guild.roles.get(&id) else {
+                                error!("Role with ID {} not found in guild {}", id, guild.id);
                                 continue;
-                            } else {
-                                println!("Role ID not found in guild: {}", id);
-                            }
-                            options.push(LegacyOption::Role(serenity::all::RoleId::new(id)));
+                            };
+                            options.push(LegacyOption::Role(role.clone()));
                         } else {
                             println!("Invalid ID format in legacy role option: {}", id_str);
                         }
                     } else if let Ok(id) = id_str.parse::<u64>()
-                        && let Some((ref guild, _)) = location
+                        && let Some((guild, _)) = location
                     {
                         if part.starts_with("<@")
                             && let Some(member) = guild.members.get(&UserId::new(id))
@@ -470,7 +474,7 @@ impl Display for LegacyOption {
         match self {
             LegacyOption::Member(m) => write!(f, "<@{}>", m.user.id.get()),
             LegacyOption::Channel(c) => write!(f, "<#{}>", c.id.get()),
-            LegacyOption::Role(id) => write!(f, "<@&{}>", id.get()),
+            LegacyOption::Role(r) => write!(f, "<@&{}>", r.id.get()),
             LegacyOption::Text(text) => write!(f, "{}", text),
             LegacyOption::Time(duration) => write!(f, "{}", Self::time_str(duration)),
             LegacyOption::Integer(num) => write!(f, "{}", num),

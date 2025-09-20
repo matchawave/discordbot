@@ -12,8 +12,8 @@ use utils::{CommandArguments, CommandResponse, CommandTemplate, CommandTrait, IC
 
 use crate::commands::command_user_target;
 
-const COMMAND_NAME: &str = "avatar";
-const COMMAND_DESCRIPTION: &str = "Get the avatar of a user";
+const COMMAND_NAME: &str = "banner";
+const COMMAND_DESCRIPTION: &str = "Get the banner of a user";
 
 pub struct Command;
 
@@ -21,7 +21,7 @@ pub fn command() -> CommandTemplate {
     let user_option = CreateCommandOption::new(
         CommandOptionType::User,
         "user",
-        "The user to get the avatar of",
+        "The user to get the banner of",
     );
     (
         ICommand::new(
@@ -50,12 +50,15 @@ impl CommandTrait for Command {
             UserType::User(u) => u.clone(),
         });
 
-        let avatar_url = target.avatar_url().unwrap_or(target.default_avatar_url());
-        let embed = CreateEmbed::default()
-            .title(format!("Avatar of {}", target.tag()))
-            .image(avatar_url)
-            .color(Colour::BLITZ_BLUE);
-        Ok(Some(CommandResponse::new_embeds(vec![embed])))
+        Ok(Some(if let Some(banner_url) = target.banner_url() {
+            let embed = CreateEmbed::default()
+                .title(format!("Banner of {}", target.tag()))
+                .image(banner_url)
+                .color(Colour::BLITZ_BLUE);
+            CommandResponse::new_embeds(vec![embed])
+        } else {
+            CommandResponse::new_content(format!("{} does not have a banner set.", target.tag()))
+        }))
     }
     fn is_legacy(&self) -> bool {
         true

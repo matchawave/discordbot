@@ -13,25 +13,6 @@ pub async fn is_command(ctx: &Context, msg: &Message) -> bool {
         return false;
     };
 
-    let location = {
-        let guild = guild_id.to_guild_cached(&ctx.cache).map(|g| g.clone());
-        guild.and_then(|g| {
-            let channel = g.channels.get(&msg.channel_id).cloned()?;
-            Some((g, channel))
-        })
-    };
-
-    let member = match location {
-        Some((ref guild, _)) => match guild.members.get(&msg.author.id) {
-            Some(m) => UserType::Member(m.clone()),
-            None => match guild.member(&ctx.http, msg.author.id).await {
-                Ok(m) => UserType::Member(m.clone().into_owned()),
-                Err(_) => UserType::User(msg.author.clone()),
-            },
-        },
-        None => UserType::User(msg.author.clone()),
-    };
-
     let prefix = {
         let data = ctx.data.read().await;
         let p = data
@@ -77,7 +58,26 @@ pub async fn is_command(ctx: &Context, msg: &Message) -> bool {
         return false;
     }
 
-    let options = LegacyOption::parse(content);
+    let location = {
+        let guild = guild_id.to_guild_cached(&ctx.cache).map(|g| g.clone());
+        guild.and_then(|g| {
+            let channel = g.channels.get(&msg.channel_id).cloned()?;
+            Some((g, channel))
+        })
+    };
+
+    let member = match location {
+        Some((ref guild, _)) => match guild.members.get(&msg.author.id) {
+            Some(m) => UserType::Member(m.clone()),
+            None => match guild.member(&ctx.http, msg.author.id).await {
+                Ok(m) => UserType::Member(m.clone().into_owned()),
+                Err(_) => UserType::User(msg.author.clone()),
+            },
+        },
+        None => UserType::User(msg.author.clone()),
+    };
+
+    let options = LegacyOption::parse(content, &location);
 
     let args = CommandArguments::Legacy(Some(options), msg);
 

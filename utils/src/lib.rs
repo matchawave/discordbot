@@ -6,7 +6,7 @@ mod permissions;
 
 use std::sync::Arc;
 
-use serenity::prelude::TypeMap;
+use serenity::{all::Permissions, prelude::TypeMap};
 use tokio::sync::RwLock;
 
 pub use commands::*;

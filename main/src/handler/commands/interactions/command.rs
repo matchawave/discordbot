@@ -5,7 +5,7 @@ use utils::{CommandArguments, UserType, error, warning};
 
 use crate::Commands;
 
-pub async fn handle(ctx: &Context, command: &CommandInteraction) -> Option<String> {
+pub async fn handle(ctx: &Context, command: CommandInteraction) -> Option<String> {
     let Some(guild_id) = command.guild_id else {
         warning!("Command '{}' invoked outside of a guild", command.data.name);
         return None;
@@ -53,7 +53,7 @@ pub async fn handle(ctx: &Context, command: &CommandInteraction) -> Option<Strin
             Some(hash_map)
         }
     };
-    let args = CommandArguments::Slash(options, command);
+    let args = CommandArguments::Slash(options, &command);
 
     match c.execute(ctx, user, location, args).await {
         Ok(r) => {
