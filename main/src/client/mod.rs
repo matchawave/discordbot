@@ -7,22 +7,29 @@ use serenity::{
 use songbird::SerenityInit;
 use utils::info;
 
+mod command_registering;
 mod data;
-
+use command_registering::run as register_commands;
 pub use data::*;
 
 use crate::events::Handler;
 
-pub async fn create_client(env: Env) -> Client {
+pub async fn create_client(env: Env, shard_count: usize) -> Client {
     info!("Creating client");
+    let (commands_vec, commands_map) = commands::load_commands();
+    let application_id = env.application_id();
     match ClientBuilder::new(env.token(), get_guild_intents())
-        .raw_event_handler(Handler::new())
+        .raw_event_handler(Handler::new(shard_count))
         .cache_settings(get_settings())
-        .type_map(initialize_type_map(env))
+        .application_id(application_id)
+        .type_map(initialize_type_map(env, commands_map))
         .register_songbird()
         .await
     {
-        Ok(client) => build_dynamic_data(client).await,
+        Ok(client) => {
+            register_commands(client.http.clone(), commands_vec).await;
+            build_dynamic_data(client).await
+        }
         Err(err) => panic!("Failed to create client: {}", err),
     }
 }

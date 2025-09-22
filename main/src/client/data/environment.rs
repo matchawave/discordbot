@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf, sync::Arc};
 
 use colored::Colorize;
 use rprompt::prompt_reply;
-use serenity::prelude::TypeMapKey;
+use serenity::{all::ApplicationId, prelude::TypeMapKey};
 use tokio::sync::RwLock;
 
 pub struct Environment;
@@ -19,6 +19,7 @@ struct ConfigFile {
 #[derive(Debug, Clone)]
 pub struct Env {
     token: String,
+    id: ApplicationId,
     api_url: String,
     lavalink: Arc<RwLock<LavalinkEnv>>,
 }
@@ -44,6 +45,10 @@ impl Env {
         lavalink.clone()
     }
 
+    pub fn application_id(&self) -> ApplicationId {
+        self.id
+    }
+
     pub async fn update_lavalink(&self, host: String, port: u16, password: String) {
         let mut lavalink = self.lavalink.write().await;
         lavalink.host = host;
@@ -56,10 +61,10 @@ impl Env {
             let path = Self::get_config_path().unwrap_or(PathBuf::from("config.toml"));
             match fs::read_to_string(&path) {
                 Ok(content) => {
-                    if let Ok(config) = toml::from_str::<ConfigFile>(&content) {
-                        if let Some(token) = config.token {
-                            return token;
-                        }
+                    if let Ok(config) = toml::from_str::<ConfigFile>(&content)
+                        && let Some(token) = config.token
+                    {
+                        return token;
                     }
                     fs::remove_file(&path).expect("Failed to remove config file");
                 }
@@ -120,6 +125,7 @@ impl Default for Env {
         };
         Self {
             token,
+            id: ApplicationId::new(1340907937471660142),
             api_url: env!("BACKEND_URL").to_string(),
             lavalink: Arc::new(LavalinkEnv::new(host, port, password).into()),
         }

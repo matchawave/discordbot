@@ -3,17 +3,16 @@ use std::{any::TypeId, collections::HashMap, fmt::Display, process, sync::Arc};
 use chrono::{Duration, TimeDelta};
 use serenity::{
     all::{
-        AutocompleteOption, Channel, ChannelId, CommandDataOptionValue, CommandInteraction,
-        CommandType, Context, CreateActionRow, CreateAttachment, CreateCommandOption, CreateEmbed,
-        CreateInteractionResponseMessage, CreateMessage, CreatePoll, Guild, GuildChannel, GuildId,
-        Member, Message, Role, RoleId, User, UserId, create_poll::Ready,
+        AutocompleteOption, ChannelId, CommandDataOptionValue, CommandInteraction, CommandType,
+        Context, CreateActionRow, CreateAttachment, CreateCommandOption, CreateEmbed,
+        CreateInteractionResponseMessage, CreateMessage, CreatePoll, Guild, GuildChannel, Member,
+        Message, Role, RoleId, User, UserId, create_poll::Ready,
     },
     async_trait,
     json::Value,
-    model::error,
 };
 
-use crate::{PermissionLevel, error, warning};
+use crate::{BotPermission, error};
 
 #[async_trait]
 pub trait CommandTrait: Send + Sync {
@@ -49,7 +48,7 @@ pub struct ICommand {
     name: String,
     description: String,
     options: Vec<CreateCommandOption>,
-    permissions: Vec<PermissionLevel>,
+    permissions: Vec<BotPermission>,
     kind: CommandType,
 }
 
@@ -59,7 +58,7 @@ impl ICommand {
         description: String,
         kind: CommandType,
         options: Vec<CreateCommandOption>,
-        permissions: Vec<PermissionLevel>,
+        permissions: Vec<BotPermission>,
     ) -> Self {
         if options.len() >= 25 {
             error!("Command {} has too many options", name);
@@ -108,12 +107,12 @@ impl ICommand {
         if self.options.is_empty() {
             serenity::all::CreateCommand::new(self.name.clone())
                 .description(self.description.clone())
-                .kind(self.kind.clone())
+                .kind(self.kind)
                 .nsfw(false)
         } else {
             let mut command = serenity::all::CreateCommand::new(self.name.clone())
                 .description(self.description.clone())
-                .kind(self.kind.clone())
+                .kind(self.kind)
                 .nsfw(false);
             for option in &self.options {
                 command = command.add_option(option.clone().to_owned());
@@ -122,7 +121,7 @@ impl ICommand {
         }
     }
 
-    pub fn get_permissions(&self) -> Vec<PermissionLevel> {
+    pub fn get_permissions(&self) -> Vec<BotPermission> {
         self.permissions.clone()
     }
 }

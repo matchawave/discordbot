@@ -1,19 +1,14 @@
 use std::{collections::HashMap, sync::Arc};
 
 use serenity::{all::CreateCommand, prelude::TypeMapKey};
-use utils::{CommandTrait, PermissionLevel, info};
+use utils::{BotPermission, CommandTrait, info};
 
 use crate::commands::{configuration, fun, integration, security, server, utilities};
 
 pub struct Commands;
-pub type CommandsMap = HashMap<String, (Arc<dyn CommandTrait>, Vec<PermissionLevel>)>;
+pub type CommandsMap = HashMap<String, (Arc<dyn CommandTrait>, Vec<BotPermission>)>;
 impl TypeMapKey for Commands {
     type Value = CommandsMap;
-}
-
-pub struct RegisteringCommands;
-impl TypeMapKey for RegisteringCommands {
-    type Value = Vec<CreateCommand>;
 }
 
 fn commands() -> Vec<utils::CommandTemplate> {

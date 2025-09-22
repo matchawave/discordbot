@@ -1,4 +1,4 @@
-mod commands;
+pub mod commands;
 mod environment;
 mod extras;
 mod permissions;
@@ -10,14 +10,13 @@ mod voice_master;
 use std::sync::Arc;
 use utils::{BotHash, UserConfigHash};
 
-use serenity::{Client, all::GuildId, prelude::TypeMap};
+use serenity::{Client, prelude::TypeMap};
 
-pub fn initialize_type_map(env: Env) -> TypeMap {
+pub fn initialize_type_map(env: Env, commands_map: CommandsMap) -> TypeMap {
     let mut data = TypeMap::new();
-    let (commands_vec, commands_map) = commands::load_commands();
+
     data.insert::<Environment>(env);
     data.insert::<Commands>(commands_map);
-    data.insert::<RegisteringCommands>(commands_vec);
 
     data.insert::<ServerPrefixes>(Arc::new(prefixes::setup().into()));
     data.insert::<VoiceHub>(Arc::new(test_voice_hub().into()));

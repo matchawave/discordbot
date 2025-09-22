@@ -4,7 +4,10 @@ use serenity::{
     all::{Context, Event, RawEventHandler},
     async_trait,
 };
-use tokio::{sync::mpsc, task};
+use tokio::{
+    sync::mpsc::{self, Sender},
+    task,
+};
 
 mod automod;
 mod category;
@@ -20,24 +23,31 @@ mod thread;
 mod voice;
 
 pub struct Handler {
-    sender: mpsc::Sender<(Context, Event)>,
+    senders: Vec<Sender<(Context, Event)>>,
 }
 
 impl Handler {
-    pub fn new() -> Self {
-        let (send, recv) = mpsc::channel(10_000);
-        tokio::spawn(async move {
-            worker(recv).await;
-        });
-        Self { sender: send }
+    pub fn new(shard_count: usize) -> Self {
+        let mut senders = Vec::with_capacity(shard_count);
+        for _ in 0..shard_count {
+            let (send, recv) = mpsc::channel(10_000);
+            tokio::spawn(worker(recv));
+            senders.push(send);
+        }
+        Self { senders }
     }
 }
 
 #[async_trait]
 impl RawEventHandler for Handler {
     async fn raw_event(&self, ctx: Context, ev: Event) {
-        if let Err(e) = self.sender.send((ctx, ev)).await {
-            eprintln!("Error sending event: {}", e);
+        let shard_id = ctx.shard_id.get() as usize;
+
+        if let Some(sender) = &self.senders.get(shard_id) {
+            sender.send((ctx, ev)).await.unwrap_or_else(|e| {
+                eprintln!("Error sending event to shard {}: {}", shard_id, e);
+            });
+            return;
         }
     }
 }

@@ -6,20 +6,8 @@ use serenity::{
 };
 use tokio::sync::RwLock;
 
-pub struct BotMasterRoles;
+pub struct PermissionMap;
 pub type BotMasterRolesMap = HashMap<GuildId, RwLock<Vec<RoleId>>>;
-impl TypeMapKey for BotMasterRoles {
+impl TypeMapKey for PermissionMap {
     type Value = RwLock<BotMasterRolesMap>;
-}
-
-pub struct AdministratorRoles;
-pub type AdministratorRolesMap = HashMap<GuildId, RwLock<Vec<RoleId>>>;
-impl TypeMapKey for AdministratorRoles {
-    type Value = RwLock<AdministratorRolesMap>;
-}
-
-pub struct ModeratorRoles;
-pub type ModeratorRolesMap = HashMap<GuildId, RwLock<Vec<RoleId>>>;
-impl TypeMapKey for ModeratorRoles {
-    type Value = RwLock<ModeratorRolesMap>;
 }

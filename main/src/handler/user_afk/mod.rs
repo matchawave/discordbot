@@ -30,7 +30,7 @@ pub async fn check_afk_status(ctx: &Context, msg: &Message) {
     let Some(status) = ({
         // Check AFK status of user
         let afk_data = afk_repo.read().await;
-        afk_data.get_raw(&guild_id, &user.id).map(|s| s.clone())
+        afk_data.get_raw(&guild_id, &user.id)
     }) else {
         return;
     };

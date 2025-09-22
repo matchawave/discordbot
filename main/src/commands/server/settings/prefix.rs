@@ -9,8 +9,8 @@ use serenity::{
 };
 
 use utils::{
-    CommandArguments, CommandResponse, CommandTemplate, CommandTrait, Data, ICommand, LegacyOption,
-    PermissionLevel, UserType, error,
+    BotPermission, CommandArguments, CommandResponse, CommandTemplate, CommandTrait, Data,
+    ICommand, LegacyOption, UserType, error,
 };
 
 use crate::{ServerPrefix, ServerPrefixes};
@@ -53,7 +53,7 @@ pub fn command() -> CommandTemplate {
             COMMAND_DESCRIPTION.to_string(),
             CommandType::ChatInput,
             vec![set_options, remove_options, get_options],
-            vec![PermissionLevel::Administrator],
+            vec![BotPermission::BotMaster],
         ),
         Arc::new(Command),
     )

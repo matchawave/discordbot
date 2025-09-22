@@ -1,11 +1,40 @@
 use serenity::all::Permissions;
+use strum_macros::Display;
 
-#[derive(Debug, Clone)]
-pub enum PermissionLevel {
+#[derive(Display, Debug, Clone)]
+pub enum BotPermission {
+    #[strum(serialize = "bot_master")]
     BotMaster,
+    #[strum(serialize = "administrator")]
     Administrator,
-    Moderator,
-    User,
+    #[strum(serialize = "ban_members")]
+    BanMembers,
+    #[strum(serialize = "kick_members")]
+    KickMembers,
+    #[strum(serialize = "mute_members")]
+    MuteMembers,
+    #[strum(serialize = "deafen_members")]
+    DeafenMembers,
+    #[strum(serialize = "move_members")]
+    MoveMembers,
+    #[strum(serialize = "manage_guild")]
+    ManageGuild,
+    #[strum(serialize = "manage_channels")]
+    ManageChannels,
+    #[strum(serialize = "manage_roles")]
+    ManageRoles,
+    #[strum(serialize = "manage_messages")]
+    ManageMessages,
+    #[strum(serialize = "manage_webhooks")]
+    ManageWebhooks,
+    #[strum(serialize = "manage_guild_expressions")]
+    ManageGuildExpressions,
+    #[strum(serialize = "manage_events")]
+    ManageEvents,
+    #[strum(serialize = "manage_nicknames")]
+    ManageNicknames,
+    #[strum(serialize = "mention_everyone")]
+    MentionEveryone,
 }
 
 pub const PERMISSION_PRIORITY: [Permissions; 32] = [

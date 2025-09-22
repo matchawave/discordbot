@@ -1,5 +1,5 @@
-use lavalink_rs::{client::LavalinkClient, model::events::TrackStart};
-use serenity::{all::standard::macros::hook, prelude::TypeMap};
+use lavalink_rs::{client::LavalinkClient, hook, model::events::TrackStart};
+use serenity::prelude::TypeMap;
 use tokio::sync::RwLock;
 
 #[hook]

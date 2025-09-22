@@ -22,9 +22,28 @@ default-members = ["main"]
 resolver = "2"
 
 [workspace.dependencies]
-serenity = {version = "0.12.4", features=['rustls_backend', "chrono"]}
-tokio = { version = "1", default-features = false, features = ['macros', 'sync', 'time', 'rt-multi-thread']}
 chrono = { version = "0.4", features = ["serde"] }
 colored  = { version = "3.0" }
 chalk = { version = "0.98" }
 regex = "1"
+
+[workspace.dependencies.tokio]
+version = "1"
+features = ['macros', 'sync', 'time', 'rt-multi-thread']
+default-features = false
+
+[workspace.dependencies.serenity]
+version = "0.12.4"
+default-features = false
+features=[
+    'rustls_backend', 
+    "chrono",
+    "builder",
+    "client",
+    "gateway",
+    "http",
+    "model",
+    "utils",
+    "voice",
+    "cache",
+]

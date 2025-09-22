@@ -1,16 +1,11 @@
 use lavalink_rs::{
     client::LavalinkClient,
-    model::events::{
-        Events, PlayerUpdate, Ready, Stats, TrackEnd, TrackException, TrackStart, TrackStuck,
-        WebSocketClosed,
-    },
+    hook,
+    model::events::{Events, WebSocketClosed},
     node::NodeBuilder,
     prelude::NodeDistributionStrategy,
 };
-use serenity::{
-    all::{CurrentUser, UserId, standard::macros::hook},
-    prelude::TypeMapKey,
-};
+use serenity::{all::CurrentUser, prelude::TypeMapKey};
 use utils::{Data, info};
 
 use crate::LavalinkEnv;
@@ -37,7 +32,7 @@ pub struct LavaLinkInstance {
 }
 
 impl LavaLinkInstance {
-    pub fn new(user: &CurrentUser, lava_env: LavalinkEnv, data: &Data) -> Self {
+    pub fn new(user: &CurrentUser, lava_env: &LavalinkEnv, data: &Data) -> Self {
         Self {
             user_id: user.id.get(),
             hostname: lava_env.hostname().to_string(),

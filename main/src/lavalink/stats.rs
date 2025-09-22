@@ -1,5 +1,5 @@
-use lavalink_rs::{client::LavalinkClient, model::events::Stats};
-use serenity::{all::standard::macros::hook, prelude::TypeMap};
+use lavalink_rs::{client::LavalinkClient, hook, model::events::Stats};
+use serenity::prelude::TypeMap;
 use tokio::sync::RwLock;
 use utils::Data;
 

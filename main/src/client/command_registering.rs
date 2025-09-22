@@ -1,18 +1,12 @@
-use serenity::all::{CacheHttp, Context, GuildId};
+use std::sync::Arc;
+
+use serenity::all::{CreateCommand, GuildId, Http, UserId};
 use utils::{error, info};
 
-use crate::{ElapsedTime, RegisteringCommands};
+use crate::ElapsedTime;
 
-pub async fn run(ctx: &Context) {
+pub async fn run(http: Arc<Http>, commands: Vec<CreateCommand>) {
     let timer = ElapsedTime::new();
-    let http = ctx.http();
-    let commands = {
-        let data = ctx.data.read().await;
-        data.get::<RegisteringCommands>()
-            .cloned()
-            .unwrap_or_default()
-    };
-
     info!("Registering commands...");
 
     // match http.create_global_commands(&commands).await {

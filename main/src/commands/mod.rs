@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use serenity::all::{
-    CacheHttp, CommandDataOptionValue, Context, Guild, Member, PartialGuild, User, UserId,
+    CacheHttp, ChannelId, CommandDataOptionValue, Context, Guild, GuildChannel, Http, Member,
+    PartialGuild, User, UserId,
 };
-use utils::{CommandArguments, CommandTrait, LegacyOption, PermissionLevel, error};
+use utils::{BotPermission, CommandArguments, CommandTrait, LegacyOption, error};
 
 mod example;
 
@@ -14,7 +15,7 @@ pub mod security;
 pub mod server;
 pub mod utilities;
 
-pub type CommandModule = (Arc<dyn CommandTrait>, Vec<PermissionLevel>);
+pub type CommandModule = (Arc<dyn CommandTrait>, Vec<BotPermission>);
 
 async fn command_user_target<'a>(ctx: &'a Context, args: &'a CommandArguments<'a>) -> Option<User> {
     let args = args.clone();
@@ -36,8 +37,7 @@ async fn command_member_target<'a>(
     args: &'a CommandArguments<'a>,
     guild: &'a Guild,
 ) -> Option<Member> {
-    let args = args.clone();
-    match args {
+    match args.clone() {
         CommandArguments::Legacy(args, _) => args.and_then(|arg| {
             arg.first().and_then(|opt| match opt {
                 LegacyOption::Member(m) => Some(m.clone()),
@@ -47,6 +47,25 @@ async fn command_member_target<'a>(
         CommandArguments::Slash(arg, _) => {
             let user_id = arg.and_then(|a| a.get("user").cloned());
             member_interaction_option(ctx, guild, user_id).await
+        }
+    }
+}
+
+async fn command_channel_target<'a>(
+    ctx: &'a Context,
+    args: &'a CommandArguments<'a>,
+    guild: &'a Guild,
+) -> Option<GuildChannel> {
+    match args.clone() {
+        CommandArguments::Legacy(args, _) => args.and_then(|arg| {
+            arg.first().and_then(|opt| match opt {
+                LegacyOption::Channel(c) => Some(c.clone()),
+                _ => None,
+            })
+        }),
+        CommandArguments::Slash(arg, _) => {
+            let channel_id = arg.and_then(|a| a.get("channel").cloned());
+            channel_interaction_option(ctx, guild, channel_id).await
         }
     }
 }
@@ -80,6 +99,21 @@ async fn member_interaction_option(
     None
 }
 
+async fn channel_interaction_option(
+    ctx: &Context,
+    guild: &Guild,
+    channel_option: Option<CommandDataOptionValue>,
+) -> Option<GuildChannel> {
+    if let Some(CommandDataOptionValue::Channel(channel_id)) = channel_option {
+        let mut channel = guild.channels.get(&channel_id).cloned();
+        if channel.is_none() {
+            channel = fetch_channel(ctx.http.as_ref(), guild, &channel_id).await;
+        }
+        return channel;
+    }
+    None
+}
+
 async fn fetch_user(http: impl CacheHttp, id: &UserId) -> Option<User> {
     match id.to_user(http).await {
         Ok(user) => Some(user),
@@ -108,6 +142,23 @@ async fn fetch_guild(http: impl CacheHttp, guild_id: &u64) -> Option<PartialGuil
         Ok(guild) => Some(guild),
         Err(e) => {
             error!("Failed to fetch guild with ID {}: {}", guild_id, e);
+            None
+        }
+    }
+}
+
+async fn fetch_channel(
+    http: &impl AsRef<Http>,
+    guild: &Guild,
+    channel_id: &ChannelId,
+) -> Option<GuildChannel> {
+    match guild.channels(http).await {
+        Ok(channels) => channels.get(channel_id).cloned(),
+        Err(e) => {
+            error!(
+                "Failed to fetch channel with ID {} in guild {}: {}",
+                channel_id, guild.id, e
+            );
             None
         }
     }

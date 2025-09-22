@@ -22,6 +22,22 @@ pub async fn update(ctx: Context, env: MessageUpdateEvent) {
     let Some(guild_id) = env.guild_id else {
         return;
     };
+    let new_message = {
+        let mut msg = Message::default();
+        env.apply_to_message(&mut msg);
+        msg
+    };
+    let old_message = ctx
+        .cache
+        .message(new_message.channel_id, new_message.id)
+        .map(|m| m.clone());
+
+    if extras::is_asking_for_bot_prefix(&ctx, &new_message).await {
+        return;
+    }
+    if commands::message::is_command(&ctx, &new_message).await {
+        return;
+    }
 }
 
 pub async fn delete(

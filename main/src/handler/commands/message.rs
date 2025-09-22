@@ -1,87 +1,44 @@
-use serenity::all::{CacheHttp, Context, Message};
-use utils::{CommandArguments, LegacyOption, UserType, error, info, warning};
+use std::sync::Arc;
+
+use serenity::{
+    all::{
+        Cache, CacheHttp, ChannelId, Context, Guild, GuildChannel, GuildId, Http, Member, Message,
+        UserId,
+    },
+    model::guild,
+};
+use utils::{
+    BotPermission, CommandArguments, CommandTrait, Data, LegacyOption, UserType, error, info,
+    warning,
+};
 
 use crate::{Commands, ElapsedTime, ServerPrefix, ServerPrefixes};
 
 pub async fn is_command(ctx: &Context, msg: &Message) -> bool {
     let timer = ElapsedTime::new();
-    if msg.author.bot {
-        return false;
-    }
+    let data = ctx.data.clone();
 
-    let Some(guild_id) = msg.guild_id else {
+    let Some(prefix) = get_prefix(&data, msg).await else {
         return false;
     };
 
-    let prefix = {
-        let data = ctx.data.read().await;
-        let p = data
-            .get::<ServerPrefixes>()
-            .expect("ServerPrefixes not initialized")
-            .read()
-            .await;
-
-        p.get(&ServerPrefix::Guild(guild_id)).cloned().unwrap_or(
-            p.get(&ServerPrefix::Default)
-                .expect("Default prefix not set")
-                .clone(),
-        )
-    };
-
-    if !msg.content.starts_with(&prefix) {
-        info!(
-            "Message does not start with prefix '{}' ({}ms)",
-            prefix,
-            timer.elapsed_ms()
-        );
-        return false;
-    }
-
-    let commands = {
-        let data = ctx.data.read().await;
-        data.get::<Commands>()
-            .expect("Commands not initialized")
-            .clone()
-    };
-
-    let mut content = msg.content.trim_start_matches(&prefix);
-    let c_name = content.split_whitespace().next().unwrap_or("");
-    content = content.trim_start_matches(c_name).trim();
-
-    let Some((c, _perms)) = commands.get(c_name) else {
-        warning!("Command '{}' not found", c_name);
+    let Some((c_name, command, permissions, content)) = get_command(&data, msg, prefix).await
+    else {
         return false;
     };
 
-    if !c.is_legacy() {
-        warning!("Command '{}' is not a legacy command", c_name);
-        return false;
-    }
+    let location = get_location(&ctx.cache, msg.guild_id, msg.channel_id).await;
+    let user = msg.author.clone();
+    let member = location
+        .as_ref()
+        .and_then(|(g, _)| g.members.get(&user.id).cloned().map(UserType::Member))
+        .unwrap_or(UserType::User(user.clone()));
 
-    let location = {
-        let guild = guild_id.to_guild_cached(&ctx.cache).map(|g| g.clone());
-        guild.and_then(|g| {
-            let channel = g.channels.get(&msg.channel_id).cloned()?;
-            Some((g, channel))
-        })
-    };
-
-    let member = match location {
-        Some((ref guild, _)) => match guild.members.get(&msg.author.id) {
-            Some(m) => UserType::Member(m.clone()),
-            None => match guild.member(&ctx.http, msg.author.id).await {
-                Ok(m) => UserType::Member(m.clone().into_owned()),
-                Err(_) => UserType::User(msg.author.clone()),
-            },
-        },
-        None => UserType::User(msg.author.clone()),
-    };
-
-    let options = LegacyOption::parse(content, &location);
+    let options = LegacyOption::parse(&content, &location);
 
     let args = CommandArguments::Legacy(Some(options), msg);
 
-    match c.execute(ctx, member, location.clone(), args).await {
+    match command.execute(ctx, member, location.clone(), args).await {
         Ok(r) => {
             if let Some(msg_response) = r {
                 let mut new_msg = msg_response.to_msg();
@@ -103,4 +60,67 @@ pub async fn is_command(ctx: &Context, msg: &Message) -> bool {
             false
         }
     }
+}
+
+pub async fn get_prefix(data: &Data, msg: &Message) -> Option<String> {
+    if msg.author.bot {
+        return None;
+    }
+
+    let guild_id = msg.guild_id?;
+
+    let data = data.read().await;
+    let p = data
+        .get::<ServerPrefixes>()
+        .expect("ServerPrefixes not initialized")
+        .read()
+        .await;
+
+    p.get(&ServerPrefix::Guild(guild_id))
+        .cloned()
+        .or(p.get(&ServerPrefix::Default).cloned())
+}
+
+pub async fn get_command(
+    data: &Data,
+    msg: &Message,
+    prefix: String,
+) -> Option<(String, Arc<dyn CommandTrait>, Vec<BotPermission>, String)> {
+    if !msg.content.starts_with(&prefix) {
+        return None;
+    }
+
+    let content = msg.content.trim_start_matches(&prefix);
+    let c_name = content.split_whitespace().next().unwrap_or("");
+
+    let data = data.read().await;
+    let commands = data
+        .get::<Commands>()
+        .expect("Commands not initialized")
+        .clone();
+
+    match commands.get(c_name).cloned() {
+        Some((c, perms)) if c.is_legacy() => Some((
+            c_name.to_string(),
+            c,
+            perms,
+            content.trim_start_matches(c_name).trim().to_string(),
+        )),
+        _ => None,
+    }
+}
+
+pub async fn get_location(
+    cache: &Arc<Cache>,
+    guild_id: Option<GuildId>,
+    channel_id: ChannelId,
+) -> Option<(Guild, GuildChannel)> {
+    let guild = guild_id.and_then(|id| cache.guild(id).map(|g| g.clone()));
+
+    guild.and_then(|g| {
+        g.channels
+            .get(&channel_id)
+            .cloned()
+            .map(|channel| (g, channel))
+    })
 }
