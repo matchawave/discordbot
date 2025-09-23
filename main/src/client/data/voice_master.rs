@@ -1,5 +1,6 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serenity::{
     all::{
@@ -8,16 +9,16 @@ use serenity::{
     },
     prelude::TypeMapKey,
 };
-use tokio::sync::RwLock;
-use utils::{BotHash, BotStringParser, UserConfigHash};
+use utils::{BotStringParser, UserConfigHash};
 pub struct VoiceHub;
+pub type VoiceHubRepo = DashMap<GuildId, VoiceMasterConfig>;
 impl TypeMapKey for VoiceHub {
-    type Value = Arc<RwLock<BotHash<GuildId, VoiceMasterConfig>>>;
+    type Value = Arc<VoiceHubRepo>;
 }
 
 pub struct UserVoiceConfigRepo;
 impl TypeMapKey for UserVoiceConfigRepo {
-    type Value = Arc<RwLock<UserConfigHash<VoiceConfig>>>;
+    type Value = Arc<UserConfigHash<VoiceConfig>>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -146,8 +147,8 @@ impl VoiceConfig {
     }
 }
 
-pub fn test_voice_hub() -> BotHash<GuildId, VoiceMasterConfig> {
-    let mut voice_hub = BotHash::new();
+pub fn test_voice_hub() -> DashMap<GuildId, VoiceMasterConfig> {
+    let voice_hub = DashMap::new();
     let mut config = VoiceMasterConfig::new(vec![MasterVoiceChannel::new(
         ChannelId::from(851183230359306251),
         None,

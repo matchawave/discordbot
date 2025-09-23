@@ -7,8 +7,8 @@ mod snipes;
 mod user_afk;
 mod voice_master;
 
-use std::sync::Arc;
-use utils::{BotHash, UserConfigHash};
+use dashmap::DashMap;
+use utils::UserConfigHash;
 
 use serenity::{Client, prelude::TypeMap};
 
@@ -18,14 +18,15 @@ pub fn initialize_type_map(env: Env, commands_map: CommandsMap) -> TypeMap {
     data.insert::<Environment>(env);
     data.insert::<Commands>(commands_map);
 
-    data.insert::<ServerPrefixes>(Arc::new(prefixes::setup().into()));
-    data.insert::<VoiceHub>(Arc::new(test_voice_hub().into()));
-    data.insert::<UserAFK>(Arc::new(UserConfigHash::new().into()));
-    data.insert::<UserVoiceConfigRepo>(Arc::new(UserConfigHash::new().into()));
+    data.insert::<ServerPrefixes>(prefixes::setup().into());
+    data.insert::<VoiceHub>(test_voice_hub().into());
+    data.insert::<UserAFK>(UserConfigHash::new().into());
+    data.insert::<UserVoiceConfigRepo>(UserConfigHash::new().into());
 
-    data.insert::<Snipes>(Arc::new(BotHash::new().into()));
-    data.insert::<EditSnipes>(Arc::new(BotHash::new().into()));
-    data.insert::<ReactionSnipes>(Arc::new(BotHash::new().into()));
+    data.insert::<Snipes>(DashMap::new().into());
+    data.insert::<EditSnipes>(DashMap::new().into());
+    data.insert::<ReactionSnipes>(DashMap::new().into());
+    data.insert::<BlacklistedSnipes>(DashMap::new().into());
     data
 }
 

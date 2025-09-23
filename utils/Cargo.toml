@@ -12,3 +12,4 @@ chrono = { workspace = true }
 macros = { path = "../macros" }
 colored = { workspace = true }
 regex = { workspace = true }
+dashmap = { workspace = true }

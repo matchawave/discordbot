@@ -126,27 +126,22 @@ impl CommandTrait for Command {
 async fn set(data: Data, value: String, guild_id: GuildId) -> CommandResponse {
     let data = data.read().await;
 
-    let prefix_repo = data
+    let prefixes = data
         .get::<ServerPrefixes>()
+        .cloned()
         .expect("Expected ServerPrefixes in TypeMap");
 
-    let default_prefix = {
-        let prefixes = prefix_repo.read().await;
-        prefixes
-            .get(&ServerPrefix::Default)
-            .cloned()
-            .expect("Default prefix must be set")
-    };
-    let previous_prefix = {
-        let prefixes = prefix_repo.read().await;
-        prefixes
-            .get(&ServerPrefix::Guild(guild_id))
-            .cloned()
-            .unwrap_or_else(|| default_prefix.clone())
-    };
+    let default_prefix = prefixes
+        .get(&ServerPrefix::Default)
+        .expect("Default prefix must be set")
+        .to_string();
+
+    let previous_prefix = prefixes
+        .get(&ServerPrefix::Guild(guild_id))
+        .map(|s| s.to_string())
+        .unwrap_or(default_prefix.clone());
 
     if value == default_prefix {
-        let mut prefixes = prefix_repo.write().await;
         prefixes.remove(&ServerPrefix::Guild(guild_id));
 
         CommandResponse::new_content(format!(
@@ -159,7 +154,6 @@ async fn set(data: Data, value: String, guild_id: GuildId) -> CommandResponse {
             previous_prefix
         ))
     } else {
-        let mut prefixes = prefix_repo.write().await;
         prefixes.insert(ServerPrefix::Guild(guild_id), value.clone());
         CommandResponse::new_content(format!("Server prefix set to: `{}`", value))
     }
@@ -167,18 +161,15 @@ async fn set(data: Data, value: String, guild_id: GuildId) -> CommandResponse {
 
 async fn remove(data: Data, guild_id: GuildId) -> CommandResponse {
     let data = data.read().await;
-    let prefix_repo = data
+    let prefixes = data
         .get::<ServerPrefixes>()
+        .cloned()
         .expect("Expected ServerPrefixes in TypeMap");
 
-    let default_prefix = {
-        let prefixes = prefix_repo.read().await;
-        prefixes
-            .get(&ServerPrefix::Default)
-            .cloned()
-            .expect("Default prefix must be set")
-    };
-    let mut prefixes = prefix_repo.write().await;
+    let default_prefix = prefixes
+        .get(&ServerPrefix::Default)
+        .expect("Default prefix must be set")
+        .to_string();
     if prefixes.remove(&ServerPrefix::Guild(guild_id)).is_none() {
         return CommandResponse::new_content(format!(
             "Server prefix is already the default: `{}`",
@@ -197,10 +188,12 @@ async fn get(data: Data, guild_id: GuildId) -> CommandResponse {
     let prefix_repo = data
         .get::<ServerPrefixes>()
         .expect("Expected ServerPrefixes in TypeMap");
-    let prefixes = prefix_repo.read().await;
-    let prefix = prefixes
+
+    let prefix = prefix_repo
         .get(&ServerPrefix::Guild(guild_id))
-        .or_else(|| prefixes.get(&ServerPrefix::Default))
-        .expect("Default prefix must be set");
+        .or(prefix_repo.get(&ServerPrefix::Default))
+        .expect("Default prefix must be set")
+        .to_string();
+
     CommandResponse::new_content(format!("Current server prefix: `{}`", prefix))
 }

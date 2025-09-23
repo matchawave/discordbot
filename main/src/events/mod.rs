@@ -68,6 +68,8 @@ async fn worker(mut receiver: mpsc::Receiver<(Context, Event)>) {
                     Event::GuildCreate(ev) => guild::create(ctx, ev.guild).await,
                     Event::GuildDelete(ev) => guild::delete(ctx, ev.guild).await,
                     Event::VoiceStateUpdate(ev) => voice::state_update(ctx, ev.voice_state).await,
+                    Event::ReactionAdd(ev) => reaction::add(ctx, ev.reaction).await,
+                    Event::ReactionRemove(ev) => reaction::remove(ctx, ev.reaction).await,
                     _ => empty_handler().await,
                 }
             }

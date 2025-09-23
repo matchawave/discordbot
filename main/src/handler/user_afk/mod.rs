@@ -27,11 +27,7 @@ pub async fn check_afk_status(ctx: &Context, msg: &Message) {
             .expect("UserAFK data not found")
     };
 
-    let Some(status) = ({
-        // Check AFK status of user
-        let afk_data = afk_repo.read().await;
-        afk_data.get_raw(&guild_id, &user.id)
-    }) else {
+    let Some(status) = afk_repo.get(&guild_id, &user.id).map(|s| s.clone()) else {
         return;
     };
 
@@ -48,8 +44,7 @@ pub async fn check_afk_status(ctx: &Context, msg: &Message) {
         error!("Failed to send AFK reply: {}", e);
     };
 
-    let mut repo = afk_repo.write().await;
-    repo.remove(&guild_id, &user.id);
+    afk_repo.remove(&guild_id, &user.id);
 }
 
 pub async fn notify_afk_mentions(ctx: Context, msg: Message) {
@@ -83,16 +78,12 @@ pub async fn notify_afk_mentions(ctx: Context, msg: Message) {
 
 async fn handle_message(
     http: &Http,
-    repo: &Arc<RwLock<UserConfigHash<UserAFKData>>>,
+    repo: &Arc<UserConfigHash<UserAFKData>>,
     user_id: &UserId,
     guild_id: &GuildId,
     msg: &Message,
 ) {
-    let Some(status) = ({
-        // Check AFK status of user
-        let afk_data = repo.read().await;
-        afk_data.get_raw(guild_id, user_id).map(|s| s.clone())
-    }) else {
+    let Some(status) = repo.get(guild_id, user_id).map(|s| s.clone()) else {
         return;
     };
 

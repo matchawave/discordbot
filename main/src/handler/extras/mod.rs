@@ -11,18 +11,19 @@ pub async fn is_asking_for_bot_prefix(ctx: &Context, msg: &Message) -> bool {
 
     let data = ctx.data.clone();
     if msg.content == bot_id.mention().to_string() {
-        let prefix = {
+        let repo = {
             let data_read = data.read().await;
-            let prefix_repo = data_read
+            data_read
                 .get::<ServerPrefixes>()
-                .expect("Expected ServerPrefixes in TypeMap");
-            let prefixes = prefix_repo.read().await;
-            prefixes
-                .get(&ServerPrefix::Guild(guild_id))
-                .or_else(|| prefixes.get(&ServerPrefix::Default))
-                .expect("Default prefix must be set")
-                .clone()
+                .cloned()
+                .expect("Expected ServerPrefixes in TypeMap")
         };
+
+        let prefix = repo
+            .get(&ServerPrefix::Guild(guild_id))
+            .or(repo.get(&ServerPrefix::Default))
+            .expect("Default prefix must be set")
+            .clone();
 
         let new_msg = format!("My prefix in this server is `{}`.", prefix);
         let message = CreateMessage::new().content(new_msg).reference_message(msg);

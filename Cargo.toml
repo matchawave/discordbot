@@ -23,9 +23,11 @@ resolver = "2"
 
 [workspace.dependencies]
 chrono = { version = "0.4", features = ["serde"] }
-colored  = { version = "3.0" }
-chalk = { version = "0.98" }
+colored  = { version = "3" }
+chalk = { version = "0.1" }
 regex = "1"
+dashmap = "6.1.0"
+
 
 [workspace.dependencies.tokio]
 version = "1"

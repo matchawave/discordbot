@@ -1,19 +1,20 @@
 use std::sync::Arc;
 
 use chrono::Utc;
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serenity::{all::GuildId, prelude::TypeMapKey};
 use tokio::sync::RwLock;
-use utils::{BotHash, UserConfigHash};
+use utils::UserConfigHash;
 
 pub struct UserAFK;
 impl TypeMapKey for UserAFK {
-    type Value = Arc<RwLock<UserConfigHash<UserAFKData>>>;
+    type Value = Arc<UserConfigHash<UserAFKData>>;
 }
 
 pub struct ServerAFKConfigRepo;
 impl TypeMapKey for ServerAFKConfigRepo {
-    type Value = Arc<RwLock<BotHash<GuildId, ServerAFKConfig>>>;
+    type Value = Arc<DashMap<GuildId, ServerAFKConfig>>;
 }
 
 pub struct ServerAFKConfig {

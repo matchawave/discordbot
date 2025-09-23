@@ -62,21 +62,17 @@ impl CommandTrait for Command {
                 .clone()
         };
 
-        {
-            let repo = afk_repo.read().await;
-            if let Some(status) = repo.get_raw(&guild.id, &user.id) {
-                return Ok(Some(
-                    CommandResponse::new_content(format!(
-                        "You are now AFK with the status: {}",
-                        status.afk_status
-                    ))
-                    .reply(),
-                ));
-            }
+        if let Some(status) = afk_repo.get(&guild.id, &user.id) {
+            return Ok(Some(
+                CommandResponse::new_content(format!(
+                    "You are now AFK with the status: {}",
+                    status.afk_status
+                ))
+                .reply(),
+            ));
         }
 
-        let mut repo = afk_repo.write().await;
-        repo.insert(UserGlobalType::User(user.id), status.clone());
+        afk_repo.insert(UserGlobalType::User(user.id), status.clone());
 
         Ok(Some(
             CommandResponse::new_content(format!(

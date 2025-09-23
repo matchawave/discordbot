@@ -70,15 +70,14 @@ pub async fn get_prefix(data: &Data, msg: &Message) -> Option<String> {
     let guild_id = msg.guild_id?;
 
     let data = data.read().await;
-    let p = data
+    let repo: Arc<dashmap::DashMap<ServerPrefix, String>> = data
         .get::<ServerPrefixes>()
-        .expect("ServerPrefixes not initialized")
-        .read()
-        .await;
-
-    p.get(&ServerPrefix::Guild(guild_id))
         .cloned()
-        .or(p.get(&ServerPrefix::Default).cloned())
+        .expect("ServerPrefixes not initialized");
+
+    repo.get(&ServerPrefix::Guild(guild_id))
+        .or(repo.get(&ServerPrefix::Default))
+        .map(|s| s.clone())
 }
 
 pub async fn get_command(
