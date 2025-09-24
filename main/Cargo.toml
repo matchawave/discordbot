@@ -22,6 +22,7 @@ url = { version = "2.5" }
 colored = { workspace = true }
 rprompt = { version = "2.2" }
 dashmap = { workspace = true }
+fastrand = "2.3"
 
 tokio = { workspace = true }
 tokio-tungstenite = { version = "0.27", default-features = false, features = ['rustls', 'connect']}

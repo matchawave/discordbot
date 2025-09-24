@@ -1,6 +1,7 @@
 mod commands;
 mod hash;
 mod logging;
+mod pagination;
 mod parser;
 mod permissions;
 
@@ -11,6 +12,8 @@ use tokio::sync::RwLock;
 
 pub use commands::*;
 pub use hash::*;
+pub use logging::*;
+pub use pagination::*;
 pub use parser::*;
 pub use permissions::*;
 

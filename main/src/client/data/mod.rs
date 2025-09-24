@@ -1,6 +1,7 @@
 pub mod commands;
 mod environment;
 mod extras;
+mod pagination;
 mod permissions;
 mod prefixes;
 mod snipes;
@@ -27,6 +28,8 @@ pub fn initialize_type_map(env: Env, commands_map: CommandsMap) -> TypeMap {
     data.insert::<EditSnipes>(DashMap::new().into());
     data.insert::<ReactionSnipes>(DashMap::new().into());
     data.insert::<BlacklistedSnipes>(DashMap::new().into());
+
+    data.insert::<Paginations>(PaginationsMap::new().into());
     data
 }
 
@@ -41,6 +44,7 @@ pub async fn build_dynamic_data(client: Client) -> Client {
 pub use commands::*;
 pub use environment::*;
 pub use extras::*;
+pub use pagination::*;
 pub use prefixes::*;
 pub use snipes::*;
 pub use user_afk::*;
