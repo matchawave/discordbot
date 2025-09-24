@@ -2,8 +2,8 @@ use std::{sync::Arc, vec};
 
 use serenity::{
     all::{
-        Colour, CommandType, Context, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, Guild,
-        GuildChannel,
+        Colour, CommandType, Context, CreateActionRow, CreateButton, CreateCommandOption,
+        CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, Guild, GuildChannel, ReactionType,
     },
     async_trait,
 };
@@ -40,7 +40,7 @@ impl CommandTrait for Command {
         ctx: &'a Context,
         _: UserType,
         channel: Option<(Guild, GuildChannel)>,
-        _: CommandArguments<'a>,
+        args: CommandArguments<'a>,
     ) -> Result<Option<CommandResponse>, String> {
         let Some((_, channel)) = channel else {
             return Err("This command can only be used in a server.".to_string());
@@ -87,7 +87,9 @@ impl CommandTrait for Command {
                 .description("There are no snipes to view in this channel.")
                 .color(Colour::ROSEWATER);
         }
-        Ok(Some(CommandResponse::new_embeds(vec![embed])))
+        let mut response = CommandResponse::new_embeds(vec![embed]);
+
+        Ok(Some(response))
     }
 
     fn is_legacy(&self) -> bool {
