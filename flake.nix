@@ -10,7 +10,7 @@
 
   outputs = { self, nixpkgs, naersk, flake-utils, nix-vscode-extensions }: 
   flake-utils.lib.eachDefaultSystem (system: let
-    pkgs = import nixpkgs {
+    pkgs = import nixpkgs {c
       inherit system;
       overlays = [ nix-vscode-extensions.overlays.default ];
       config.allowUnfree = true;
@@ -25,11 +25,7 @@
     packages.default = rustPackage;
     devShells.default = pkgs.mkShell {
       inputsFrom = [ rustPackage ];
-      nativeBuildInputs = with pkgs; [ 
-        rustc
-        cargo
-        rustfmt
-        rust-analyzer
+      nativeBuildInputs = with pkgs; [
         # VSCode with extensions
         (pkgs.vscode-with-extensions.override {
           vscodeExtensions = with pkgs.vscode-marketplace; [
