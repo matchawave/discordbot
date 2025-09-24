@@ -1,4 +1,7 @@
-use serenity::all::{ChannelId, Context, GuildId, Message, MessageId, MessageUpdateEvent};
+use serenity::all::{
+    ActionRowComponent, ButtonKind, ChannelId, Context, GuildId, Message, MessageId,
+    MessageUpdateEvent,
+};
 
 use crate::{extras, handler::commands, snipes, user_afk};
 
@@ -7,6 +10,10 @@ pub async fn create(ctx: Context, message: Message) {
         return;
     };
     if message.author.bot {
+        let current_bot = ctx.cache.current_user().clone();
+        if message.author.id == current_bot.id {
+            organize_components(&ctx, &message).await;
+        }
         return;
     }
 
@@ -80,4 +87,25 @@ pub async fn bulk_delete(
     let Some(guild_id) = guild_id else {
         return;
     };
+}
+
+async fn organize_components(ctx: &Context, message: &Message) {
+    let components = message.components.clone();
+
+    for row in components {
+        if let Some(first) = row.components.first() {
+            match first {
+                ActionRowComponent::Button(button) => {
+                    if let ButtonKind::NonLink { custom_id, style } = &button.data {}
+                }
+                ActionRowComponent::SelectMenu(select) => {
+                    // Handle select menu component
+                }
+                ActionRowComponent::InputText(input) => {
+                    // Handle input text component
+                }
+                _ => {}
+            }
+        }
+    }
 }
