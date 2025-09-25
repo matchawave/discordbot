@@ -1,25 +1,30 @@
 use chrono::{DateTime, Duration, Utc};
-use serenity::all::{CreateActionRow, CreateButton, CreateEmbed, ReactionType};
+use serenity::all::{
+    ChannelId, CreateActionRow, CreateButton, CreateEmbed, MessageId, ReactionType, UserId,
+};
+
+const TIMEOUT: i64 = 1; // minutes
 
 #[derive(Clone, Debug)]
 pub struct Pagination {
     index: usize,
     embeds: Vec<CreateEmbed>,
     components: [CreateButton; 2],
-    cooldown: DateTime<Utc>,
+    timeout: DateTime<Utc>,
+    id: Option<(ChannelId, MessageId)>,
 }
 
 impl Pagination {
-    pub fn new(id: u64, embeds: Vec<CreateEmbed>) -> Self {
+    pub fn new(id: u64, user_id: u64, embeds: Vec<CreateEmbed>) -> Self {
         let prev_button = {
-            let id = format!("page|{}|previous", id);
+            let id = format!("page|{}|{}|previous", id, user_id);
             CreateButton::new(id)
                 .emoji(ReactionType::Unicode("◀️".to_string()))
                 .style(serenity::all::ButtonStyle::Primary)
                 .disabled(true)
         };
         let next_button = {
-            let id = format!("page|{}|next", id);
+            let id = format!("page|{}|{}|next", id, user_id);
             CreateButton::new(id)
                 .emoji(ReactionType::Unicode("▶️".to_string()))
                 .style(serenity::all::ButtonStyle::Primary)
@@ -29,7 +34,8 @@ impl Pagination {
             index: 0,
             embeds,
             components: [prev_button, next_button],
-            cooldown: Utc::now() + Duration::minutes(3),
+            timeout: Utc::now() + Duration::minutes(TIMEOUT),
+            id: None,
         }
     }
 
@@ -45,7 +51,7 @@ impl Pagination {
             self.components[1] = self.components[1].clone().disabled(true);
         }
         self.index = index;
-        self.cooldown = Utc::now() + Duration::minutes(3);
+        self.timeout = Utc::now() + Duration::minutes(TIMEOUT);
         let components = CreateActionRow::Buttons(self.components.to_vec());
         Some((embed.clone(), components))
     }
@@ -62,7 +68,7 @@ impl Pagination {
             self.components[0] = self.components[0].clone().disabled(true);
         }
         self.index = index;
-        self.cooldown = Utc::now() + Duration::minutes(3);
+        self.timeout = Utc::now() + Duration::minutes(TIMEOUT);
         let components = CreateActionRow::Buttons(self.components.to_vec());
         Some((embed.clone(), components))
     }
@@ -74,7 +80,15 @@ impl Pagination {
     }
 
     pub fn is_expired(&self) -> bool {
-        Utc::now() > self.cooldown
+        Utc::now() > self.timeout
+    }
+
+    pub fn set_id(&mut self, channel_id: ChannelId, message_id: MessageId) {
+        self.id = Some((channel_id, message_id));
+    }
+
+    pub fn id(&self) -> Option<(ChannelId, MessageId)> {
+        self.id
     }
 }
 

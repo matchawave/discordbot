@@ -9,6 +9,7 @@ use utils::info;
 
 mod command_registering;
 mod data;
+mod processes;
 use command_registering::run as register_commands;
 pub use data::*;
 
@@ -27,8 +28,10 @@ pub async fn create_client(env: Env, shard_count: usize) -> Client {
         .await
     {
         Ok(client) => {
+            processes::initialize_processes(&client).await;
             register_commands(client.http.clone(), commands_vec).await;
-            build_dynamic_data(client).await
+            build_dynamic_data(client.data.clone(), client.shard_manager.clone()).await;
+            client
         }
         Err(err) => panic!("Failed to create client: {}", err),
     }

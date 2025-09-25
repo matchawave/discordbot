@@ -51,11 +51,16 @@ impl CommandTrait for Command {
             embed_list.push(embed);
         }
 
+        let user = match user {
+            UserType::User(u) => u,
+            UserType::Member(m) => m.user.clone(),
+        };
+
         let data = ctx.data.read().await;
         let pages = data
             .get::<Paginations>()
             .ok_or("Failed to get paginations data.".to_string())?
-            .insert(embed_list)
+            .insert(embed_list, user.id.get())
             .await;
 
         Ok(Some(

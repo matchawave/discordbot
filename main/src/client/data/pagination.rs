@@ -2,7 +2,10 @@ use serenity::{
     all::{CreateActionRow, CreateEmbed},
     prelude::TypeMapKey,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, hash_map::Iter},
+    sync::Arc,
+};
 use tokio::sync::RwLock;
 use utils::Pagination;
 
@@ -18,9 +21,13 @@ impl PaginationsMap {
         Self(PaginationsMap::default().0)
     }
 
-    pub async fn insert(&self, embeds: Vec<CreateEmbed>) -> (CreateEmbed, CreateActionRow) {
+    pub async fn insert(
+        &self,
+        embeds: Vec<CreateEmbed>,
+        user_id: u64,
+    ) -> (CreateEmbed, CreateActionRow) {
         let key = self.generate_key().await;
-        let pagination = Pagination::new(key, embeds);
+        let pagination = Pagination::new(key, user_id, embeds);
         let mut map = self.0.write().await;
         map.insert(key, Arc::new(RwLock::new(pagination.clone())));
         pagination.current()
@@ -43,5 +50,9 @@ impl PaginationsMap {
             key = fastrand::u64(1000..9999);
         }
         key
+    }
+
+    pub async fn map(&self) -> HashMap<u64, Arc<RwLock<Pagination>>> {
+        self.0.read().await.clone()
     }
 }

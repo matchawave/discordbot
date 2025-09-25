@@ -7,7 +7,7 @@ mod permissions;
 
 use std::sync::Arc;
 
-use serenity::{all::Permissions, prelude::TypeMap};
+use serenity::{all::UserId, prelude::TypeMap};
 use tokio::sync::RwLock;
 
 pub use commands::*;
@@ -30,4 +30,18 @@ pub fn position_suffix(position: usize) -> String {
         _ => "th",
     };
     format!("{}{}", position, suffix)
+}
+
+pub fn parse_button_id(custom_id: &str) -> Option<(&str, u64, UserId, PaginationAction)> {
+    let parts: Vec<&str> = custom_id.split('|').collect();
+    if parts.len() != 4 {
+        return None;
+    }
+
+    let section = parts[0];
+    let id = parts[1].parse::<u64>().ok()?;
+    let userid = parts[2].parse::<UserId>().ok()?;
+    let action = PaginationAction::from(parts[3]);
+
+    Some((section, id, userid, action))
 }

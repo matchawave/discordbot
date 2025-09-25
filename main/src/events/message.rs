@@ -2,8 +2,9 @@ use serenity::all::{
     ActionRowComponent, ButtonKind, ChannelId, Context, GuildId, Message, MessageId,
     MessageUpdateEvent,
 };
+use utils::parse_button_id;
 
-use crate::{extras, handler::commands, snipes, user_afk};
+use crate::{Paginations, extras, handler::commands, snipes, user_afk};
 
 pub async fn create(ctx: Context, message: Message) {
     let Some(guild_id) = message.guild_id else {
@@ -96,7 +97,27 @@ async fn organize_components(ctx: &Context, message: &Message) {
         if let Some(first) = row.components.first() {
             match first {
                 ActionRowComponent::Button(button) => {
-                    if let ButtonKind::NonLink { custom_id, style } = &button.data {}
+                    if let ButtonKind::NonLink { custom_id, style } = &button.data
+                        && let Some((section, id, userid, action)) =
+                            parse_button_id(custom_id.as_str())
+                    {
+                        match section {
+                            "page" => {
+                                let pages = {
+                                    let data = ctx.data.read().await;
+                                    data.get::<Paginations>()
+                                        .expect("Failed to get paginations")
+                                        .clone()
+                                };
+
+                                if let Some(page) = pages.get(&id).await {
+                                    let mut page = page.write().await;
+                                    page.set_id(message.channel_id, message.id);
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
                 }
                 ActionRowComponent::SelectMenu(select) => {
                     // Handle select menu component

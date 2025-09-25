@@ -1,8 +1,8 @@
 use serenity::all::{
     CacheHttp, ComponentInteraction, ComponentInteractionDataKind, Context,
-    CreateInteractionResponse, EditMessage,
+    CreateInteractionResponse, EditMessage, UserId,
 };
-use utils::{PaginationAction, error};
+use utils::{PaginationAction, error, parse_button_id};
 
 use crate::Paginations;
 
@@ -30,7 +30,7 @@ pub async fn handle(ctx: &Context, component: ComponentInteraction) -> Option<St
 
     match &component.data.kind {
         ComponentInteractionDataKind::Button => {
-            let (section, id, action) = parse_button_id(custom_id)?;
+            let (section, id, user_i, action) = parse_button_id(custom_id)?;
 
             let pages = {
                 let data = ctx.data.read().await;
@@ -57,17 +57,4 @@ pub async fn handle(ctx: &Context, component: ComponentInteraction) -> Option<St
         }
         _ => None,
     }
-}
-
-fn parse_button_id(custom_id: &str) -> Option<(&str, u64, PaginationAction)> {
-    let parts: Vec<&str> = custom_id.split('|').collect();
-    if parts.len() != 3 {
-        return None;
-    }
-
-    let section = parts[0];
-    let id = parts[1].parse::<u64>().ok()?;
-    let action = PaginationAction::from(parts[2]);
-
-    Some((section, id, action))
 }
