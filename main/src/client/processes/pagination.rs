@@ -14,8 +14,8 @@ pub async fn handle_pagination_timeout_loop(data: Data, http: Arc<Http>) {
                 .expect("Expected Paginations in TypeMap.")
                 .clone()
         };
-        for (key, page_lock) in paginations.map().await.iter() {
-            let pagination = page_lock.read().await.clone();
+        for (key, pagination_lock) in paginations.map().await.iter() {
+            let pagination = pagination_lock.read().await.clone();
 
             if pagination.is_expired()
                 && let Some((channel_id, message_id)) = pagination.id()
